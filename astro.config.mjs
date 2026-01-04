@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://astro.build/config
 export default defineConfig({
-    site: 'https://isitworththetime.com',
+    site: 'https://passwordentropy.com',
 
     compressHTML: import.meta.env.PROD,
 
