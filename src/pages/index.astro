@@ -44,6 +44,9 @@ const preCalculatedData = hashAlgorithms.map(hash =>
               placeholder="Enter your password..."
               autocomplete="off"
               spellcheck="false"
+              data-1p-ignore
+              data-lpignore="true"
+              data-form-type="other"
             />
             <button type="button" id="toggle-visibility" class="visibility-toggle" aria-label="Toggle password visibility">
               <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -59,9 +62,10 @@ const preCalculatedData = hashAlgorithms.map(hash =>
         </div>
 
         <div class="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 w-auto">
-          <div class="entropy-stat">
+          <div class="entropy-stat entropy-stat-with-banner">
             <span class="entropy-label">Entropy</span>
             <span class={`entropy-value ${isPenalized ? 'penalized' : ''}`} id="entropy-bits">{displayEntropy.toFixed(1)} bits</span>
+            <span class={`breach-banner max-[480px]:hidden ${isPenalized ? '' : 'hidden'}`} id="breach-banner">In breachlist</span>
           </div>
           <div class="entropy-stat">
             <span class="entropy-label">Strength</span>
@@ -71,9 +75,10 @@ const preCalculatedData = hashAlgorithms.map(hash =>
             <span class="entropy-label">Length</span>
             <span class="entropy-value" id="password-length">{DEFAULT_PASSWORD.length} chars</span>
           </div>
-          <div class="entropy-stat">
+          <div class="entropy-stat entropy-stat-with-banner">
             <span class="entropy-label">Breaches</span>
             <span class={`entropy-value strength-badge ${getBreachTier(defaultBreachCount)}`} id="breach-count">{formatBreachCount(defaultBreachCount)}</span>
+            <span class={`breach-banner min-[480px]:hidden ${isPenalized ? '' : 'hidden'}`} id="breach-banner">In breachlist</span>
           </div>
         </div>
       </div>
@@ -232,23 +237,55 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     }
   }
 
+  .entropy-stat-with-banner {
+    position: relative;
+  }
+
+  .breach-banner {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+    border-radius: 4px;
+    background: rgba(220, 38, 38, 0.15);
+    color: #dc2626;
+  }
+
+  .breach-banner.hidden {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .breach-banner {
+      background: rgba(248, 113, 113, 0.2);
+      color: #f87171;
+    }
+  }
+
   .strength-badge {
     padding: 0.125rem 0.5rem;
     border-radius: 4px;
     font-size: 0.875rem;
   }
 
-  /* Strength badge: purple (very weak), red (weak), grey (moderate), blue (strong), green (very strong) */
+  /* Strength badge: purple (very weak), red (weak), yellow (moderate), blue (strong), green (very strong) */
   .strength-badge.tier-1 { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
   .strength-badge.tier-2 { background: rgba(220, 38, 38, 0.15); color: #dc2626; }
-  .strength-badge.tier-3 { background: rgba(100, 116, 139, 0.15); color: #64748b; }
+  .strength-badge.tier-3 { background: rgba(202, 138, 4, 0.15); color: #ca8a04; }
   .strength-badge.tier-4 { background: rgba(37, 99, 235, 0.15); color: #2563eb; }
   .strength-badge.tier-5 { background: rgba(22, 163, 74, 0.15); color: #16a34a; }
 
   @media (prefers-color-scheme: dark) {
     .strength-badge.tier-1 { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
     .strength-badge.tier-2 { background: rgba(248, 113, 113, 0.2); color: #f87171; }
-    .strength-badge.tier-3 { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+    .strength-badge.tier-3 { background: rgba(250, 204, 21, 0.2); color: #facc15; }
     .strength-badge.tier-4 { background: rgba(96, 165, 250, 0.2); color: #60a5fa; }
     .strength-badge.tier-5 { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
   }
@@ -525,6 +562,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
   const strengthLabel = document.getElementById('strength-label') as HTMLSpanElement;
   const passwordLength = document.getElementById('password-length') as HTMLSpanElement;
   const breachCount = document.getElementById('breach-count') as HTMLSpanElement;
+  const breachBanner = document.getElementById('breach-banner') as HTMLSpanElement;
   const valueCells = document.querySelectorAll<HTMLTableCellElement>('.value-cell');
 
   let isPasswordVisible = true;
@@ -559,6 +597,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     // Update entropy display (will be updated again if HIBP finds breaches)
     entropyBits.textContent = `${(entropy ?? 0).toFixed(1)} bits`;
     entropyBits.classList.remove('penalized');
+    breachBanner.classList.add('hidden');
     strengthLabel.textContent = getStrengthLabel(entropy);
     strengthLabel.className = `entropy-value strength-badge ${getStrengthTier(entropy)}`;
     passwordLength.textContent = `${password.length} chars`;
@@ -593,6 +632,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
         entropyBits.textContent = `${penalizedEntropy.toFixed(1)} bits`;
         if (isPenalized) {
           entropyBits.classList.add('penalized');
+          breachBanner.classList.remove('hidden');
         }
 
         // Update strength label based on penalized entropy
