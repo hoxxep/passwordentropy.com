@@ -404,7 +404,7 @@ export function calculatePenalizedEntropy(
   const breachedEntropyCap = 25.0;
 
   // Use the lower of original entropy or the Zipf-estimated entropy, with a hard cap of 25 bits
-  console.debug('Calculated penalty', { frequency, rank, penalizedEntropy, originalEntropy, breachedEntropyCap });
+  // console.debug('Calculated penalty', { frequency, rank, penalizedEntropy, originalEntropy, breachedEntropyCap });
   const finalEntropy = Math.min(originalEntropy, penalizedEntropy, breachedEntropyCap);
 
   return {
