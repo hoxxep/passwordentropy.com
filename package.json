@@ -1,9 +1,9 @@
 {
-  "name": "isitworththetime",
+  "name": "passwordentropy",
   "type": "module",
   "version": "1.0.0",
   "author": "Liam Gray <@hoxxep>",
-  "repository": "https://github.com/hoxxep/isitworththetime",
+  "repository": "https://github.com/hoxxep/passwordentropy.com",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
