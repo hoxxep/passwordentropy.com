@@ -65,7 +65,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           <div class="entropy-stat entropy-stat-with-banner">
             <span class="entropy-label">Entropy</span>
             <span class={`entropy-value ${isPenalized ? 'penalized' : ''}`} id="entropy-bits">{displayEntropy.toFixed(1)} bits</span>
-            <span class={`breach-banner max-[480px]:hidden ${isPenalized ? '' : 'hidden'}`} id="breach-banner">In breachlist</span>
+            <span class={`breach-banner max-[480px]:hidden ${isPenalized ? '' : 'hidden'}`} id="breach-banner-desktop">In breachlist</span>
           </div>
           <div class="entropy-stat">
             <span class="entropy-label">Strength</span>
@@ -78,7 +78,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           <div class="entropy-stat entropy-stat-with-banner">
             <span class="entropy-label">Breaches</span>
             <span class={`entropy-value strength-badge ${getBreachTier(defaultBreachCount)}`} id="breach-count">{formatBreachCount(defaultBreachCount)}</span>
-            <span class={`breach-banner min-[480px]:hidden ${isPenalized ? '' : 'hidden'}`} id="breach-banner">In breachlist</span>
+            <span class={`breach-banner min-[480px]:hidden ${isPenalized ? '' : 'hidden'}`} id="breach-banner-mobile">In breachlist</span>
           </div>
         </div>
       </div>
@@ -563,7 +563,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
   const strengthLabel = document.getElementById('strength-label') as HTMLSpanElement;
   const passwordLength = document.getElementById('password-length') as HTMLSpanElement;
   const breachCount = document.getElementById('breach-count') as HTMLSpanElement;
-  const breachBanner = document.getElementById('breach-banner') as HTMLSpanElement;
+  const breachBanners = document.querySelectorAll<HTMLSpanElement>('.breach-banner');
   const valueCells = document.querySelectorAll<HTMLTableCellElement>('.value-cell');
 
   let isPasswordVisible = true;
@@ -598,7 +598,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     // Update entropy display (will be updated again if HIBP finds breaches)
     entropyBits.textContent = `${(entropy ?? 0).toFixed(1)} bits`;
     entropyBits.classList.remove('penalized');
-    breachBanner.classList.add('hidden');
+    breachBanners.forEach(banner => banner.classList.add('hidden'));
     strengthLabel.textContent = getStrengthLabel(entropy);
     strengthLabel.className = `entropy-value strength-badge ${getStrengthTier(entropy)}`;
     passwordLength.textContent = `${password.length} chars`;
@@ -633,7 +633,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
         entropyBits.textContent = `${penalizedEntropy.toFixed(1)} bits`;
         if (isPenalized) {
           entropyBits.classList.add('penalized');
-          breachBanner.classList.remove('hidden');
+          breachBanners.forEach(banner => banner.classList.remove('hidden'));
         }
 
         // Update strength label based on penalized entropy
