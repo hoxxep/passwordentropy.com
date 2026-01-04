@@ -1,5 +1,19 @@
 // Password entropy and crack time calculations
 
+import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
+import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
+import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en';
+
+// Initialize zxcvbn with English dictionary and common adjacency graphs
+zxcvbnOptions.setOptions({
+  dictionary: {
+    ...zxcvbnCommonPackage.dictionary,
+    ...zxcvbnEnPackage.dictionary,
+  },
+  graphs: zxcvbnCommonPackage.adjacencyGraphs,
+  translations: zxcvbnEnPackage.translations,
+});
+
 // Hash rates per GPU (hashes per second) based on RTX 5090 hashcat benchmarks
 //
 // Sources:
@@ -113,16 +127,15 @@ export function analyzePassword(password: string): {
 }
 
 /**
- * Calculate password entropy in bits.
- * Entropy = log2(charsetSize ^ length) = length * log2(charsetSize)
+ * Calculate password entropy in bits using zxcvbn.
+ * Converts guessesLog10 to log2: entropy = guessesLog10 * log2(10)
  */
 export function calculateEntropy(password: string): number {
   if (password.length === 0) return 0;
 
-  const analysis = analyzePassword(password);
-  if (analysis.charsetSize === 0) return 0;
-
-  return analysis.length * Math.log2(analysis.charsetSize);
+  const result = zxcvbn(password);
+  // Convert log10(guesses) to log2(guesses) for bits of entropy
+  return result.guessesLog10 * Math.log2(10);
 }
 
 /**
