@@ -1,16 +1,38 @@
 // Password entropy and crack time calculations
 
-// Hash rates per GPU (hashes per second) based on RTX 4090 benchmarks
-// Sources: hashcat benchmarks, various security research
+// Hash rates per GPU (hashes per second) based on RTX 5090 hashcat benchmarks
+//
+// Sources:
+// - RTX 5090: https://gist.github.com/Chick3nman/09bac0775e6393468c2925c1e1363d5c
+// - RTX 4090: https://gist.github.com/Chick3nman/32e662a5bb63bc4f51b847bb422222fd
+// - Argon2id (hashcat 7.0.0): https://hashcat.net/forum/thread-11277.html
+//
+// KDF rates are scaled to production-realistic parameters:
+// - PBKDF2: 310,000 iterations (Django 4.x default for SHA-256)
+// - bcrypt: cost 10 (1,024 rounds, common production default)
+// - scrypt: N=16384, r=1, p=1 (hashcat benchmark default)
+// - Argon2id: m=65536 (64 MiB), t=3, p=1 (RFC 9106 first recommendation)
+//
 export const hashRates: Record<string, number> = {
-  none: 1e12,           // Plain text comparison: ~1 trillion/s
-  md5: 164e9,           // ~164 billion/s
-  sha1: 27e9,           // ~27 billion/s
-  sha512: 3.5e9,        // ~3.5 billion/s
-  pbkdf2: 30e3,         // ~30k/s (PBKDF2-HMAC-SHA256, 100k iterations)
-  bcrypt: 184e3,        // ~184k/s (cost factor 10)
-  scrypt: 2.8e6,        // ~2.8 million/s (default params)
-  argon2id: 19.7e3,     // ~20k/s (default params)
+  // Fast hashes (RTX 5090, hashcat -b)
+  none: 1e12,           // Plain text comparison: ~1 trillion/s (estimated)
+  md5: 220.6e9,         // 220.6 GH/s (mode 0)
+  sha1: 70.2e9,         // 70.2 GH/s (mode 100)
+  sha512: 10e9,         // 10.0 GH/s (mode 1700)
+
+  // KDFs with production parameters (RTX 5090, scaled from benchmarks)
+  // Benchmark: 11.2 MH/s @ 999 iterations → scaled to 310k iterations
+  pbkdf2: 36e3,         // ~36 kH/s (mode 10900, PBKDF2-HMAC-SHA256, 310k iter)
+
+  // Benchmark: 304.8 kH/s @ cost 5 → scaled to cost 10 (32x slower)
+  bcrypt: 9.5e3,        // ~9.5 kH/s (mode 3200, cost 10)
+
+  // Benchmark: 7,760 H/s @ N=16384, r=1, p=1
+  scrypt: 7.76e3,       // ~7.8 kH/s (mode 8900, N=16384, r=1, p=1)
+
+  // RTX 4090: 1,703 H/s @ m=65536, t=3, p=1 (hashcat 7.0.0)
+  // Estimated ~1.3x for RTX 5090
+  argon2id: 2.2e3,      // ~2.2 kH/s (mode 34000, m=64MiB, t=3, p=1)
 };
 
 // GPU scale configurations
