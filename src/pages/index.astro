@@ -121,13 +121,13 @@ const preCalculatedData = hashAlgorithms.map(hash =>
 
     <div class="mx-auto w-full max-w-5xl px-3 sm:px-6 lg:px-10 grow-0">
       <div class="mt-8 text-center text-slate-500 dark:text-slate-400">
-        <p class="font-medium mb-2">How to read this table</p>
+        <p class="text-sm font-medium uppercase mb-1">How to read this table</p>
         <p class="text-sm max-w-2xl mx-auto mb-4">
-          Each cell shows the estimated time to crack the password using a brute-force attack.
+          Each cell shows the estimated time to crack the password.
           Rows represent different password hashing algorithms (stronger ones like Argon2id take longer to crack).
           Columns represent the attacker's computing power (more GPUs = faster cracking).
-          Hash rates are based on RTX 5090 benchmarks.
-          We use <a class="underline" href="https://haveibeenpwned.com">haveibeenpwned.com</a> to securely check for password breaches. Breached password entropy is heavily penalised, as they're much less secure.
+          Hash rates are based on RTX 5090 benchmarks with standard hash parameters.
+          We use <a class="underline" href="https://haveibeenpwned.com">haveibeenpwned.com</a> to securely check for password breaches. Breached password entropy is heavily penalised, as they are much less secure.
           Read more on <a class="underline" href="https://github.com/hoxxep/passwordentropy.com" target="_blank">Github</a>.
         </p>
       </div>
