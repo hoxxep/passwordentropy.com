@@ -105,21 +105,3 @@ h1, h2, h3, h4, h5, h6 {
     line-height: 1.2;
 }
 
-.site-section {
-    margin: 0 auto;
-    padding: 4rem 40px;
-    width: 100%;
-    max-width: 1024px;
-}
-
-@media (max-width: 1023px) {
-    .site-section {
-        padding: 4rem 24px;
-    }
-}
-
-@media (max-width: 520px) {
-    .site-section {
-        padding: 2rem 12px;
-    }
-}

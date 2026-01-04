@@ -57,7 +57,6 @@ export interface HashAlgorithm {
 }
 
 export const hashAlgorithms: HashAlgorithm[] = [
-  { label: 'None (plaintext)', key: 'none' },
   { label: 'MD5', key: 'md5' },
   { label: 'SHA-1', key: 'sha1' },
   { label: 'SHA-512', key: 'sha512' },
@@ -155,10 +154,7 @@ export function calculateCrackTime(
  * Uses appropriate units from seconds up to billions of years.
  */
 export function formatCrackTime(seconds: number): string {
-  if (seconds === 0) return 'Instant';
-  if (seconds < 0.001) return 'Instant';
-  if (seconds < 1) return '<1 sec';
-  if (seconds < 60) return `${Math.round(seconds)} sec`;
+  if (seconds < 600) return 'Instant';  // < 10 minutes
 
   const minutes = seconds / 60;
   if (minutes < 60) return `${Math.round(minutes)} min`;
