@@ -17,12 +17,12 @@ const preCalculatedData = hashAlgorithms.map(hash =>
 
 <Layout title="Password Entropy Calculator" description="Calculate your password's entropy and see how long it would take to crack with different hashing algorithms and attacker resources.">
   <main class="min-h-screen flex flex-col justify-center">
-    <div class="mx-auto w-full max-w-5xl px-3 py-8 sm:px-6 sm:py-16 lg:px-10 grow-0">
+    <div class="mx-auto w-full max-w-5xl px-3 py-12 sm:px-6 sm:py-16 lg:px-10 grow-0">
       <header class="text-center mb-16">
-        <h1 class="text-3xl lg:text-4xl font-semibold text-slate-800 dark:text-slate-100 mb-1 sm:mb-2">
+        <h1 class="text-2xl sm:text-3xl lg:text-4xl font-semibold text-slate-800 dark:text-slate-100 mb-1 sm:mb-2">
           Password Entropy Calculator
         </h1>
-        <p class="text-xl leading-tight text-slate-600 dark:text-slate-300 mx-auto">
+        <p class="text-lg sm:text-xl leading-tight text-slate-600 dark:text-slate-300 mx-auto">
           How long would it take to crack your password?
         </p>
       </header>
@@ -55,7 +55,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           </div>
         </div>
 
-        <div class="flex flex-wrap justify-center gap-4 w-full sm:w-auto">
+        <div class="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 w-auto">
           <div class="entropy-stat">
             <span class="entropy-label">Entropy</span>
             <span class="entropy-value" id="entropy-bits">{defaultEntropy.toFixed(1)} bits</span>
@@ -76,7 +76,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
       </div>
 
       <div class="table-container p-2 sm:p-4 rounded-xl sm:rounded-2xl overflow-hidden">
-        <div class="overflow-x-auto rounded-lg">
+        <div class="overflow-x-scroll sm:overflow-x-auto rounded-lg">
           <table class="crack-table">
             <thead>
               <tr>
@@ -165,7 +165,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     font-size: 1.125rem;
     font-weight: 500;
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 0 0.75rem 1rem;
     border: none;
     background: transparent;
     color: rgb(var(--accent-grey));
@@ -262,7 +262,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
   .corner-cell {
     position: relative;
     background: linear-gradient(25deg, rgb(var(--bg-grey)) 0%, rgb(var(--bg-blue-light)) 100%);
-    min-width: 130px;
+    min-width: 110px;
     min-height: 40px;
     overflow: hidden;
   }
@@ -416,10 +416,22 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     flex-shrink: 0;
   }
 
+  /* Tablet: reduce table font size to avoid horizontal scroll */
+  @media (max-width: 768px) {
+    .crack-table th,
+    .crack-table td {
+      padding: 0.75rem 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .gpu-header {
+      min-width: 4rem;
+    }
+  }
+
   @media (max-width: 640px) {
     .entropy-stat {
-      flex: 1;
-      min-width: 80px;
+      min-width: unset;
       padding: 0.5rem 0.75rem;
     }
 
@@ -429,6 +441,10 @@ const preCalculatedData = hashAlgorithms.map(hash =>
 
     .entropy-value {
       font-size: 0.9rem;
+    }
+
+    .strength-badge {
+      font-size: 0.75rem;
     }
 
     .password-input {
@@ -448,7 +464,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     .crack-table th,
     .crack-table td {
       padding: 0.625rem 0.5rem;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
     }
 
     .footer-link {
@@ -456,6 +472,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
       justify-content: center;
     }
   }
+
 </style>
 
 <script>
