@@ -167,7 +167,7 @@ export function calculateCrackTime(
  * Uses appropriate units from seconds up to billions of years.
  */
 export function formatCrackTime(seconds: number): string {
-  if (seconds < 600) return 'Instant';  // < 10 minutes
+  if (seconds < 60) return 'Instant';  // < 1 minute
 
   const minutes = seconds / 60;
   if (minutes < 60) return `${Math.round(minutes)} min`;
@@ -202,7 +202,7 @@ export function formatCrackTime(seconds: number): string {
  * tier-5 (green): Very strong - 10+ billion years
  */
 export function getCrackTimeTier(seconds: number): string {
-  if (seconds < 600) return 'tier-1';              // < 10 minutes (instant)
+  if (seconds < 60 * 60 * 24) return 'tier-1';     // < 1 day (instant)
   if (seconds < 31557600) return 'tier-2';         // < 1 year
   if (seconds < 3.1557e11) return 'tier-3';        // < 1 thousand ears
   if (seconds < 3.1557e16) return 'tier-4';        // < 1 billion years
