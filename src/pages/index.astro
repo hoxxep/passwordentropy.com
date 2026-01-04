@@ -16,8 +16,8 @@ const preCalculatedData = hashAlgorithms.map(hash =>
 ---
 
 <Layout title="Password Entropy Calculator" description="Calculate your password's entropy and see how long it would take to crack with different hashing algorithms and attacker resources.">
-  <main class="min-h-screen flex flex-col justify-center">
-    <div class="mx-auto w-full max-w-5xl px-3 py-12 sm:px-6 sm:py-16 lg:px-10 grow-0">
+  <main class="min-h-screen flex flex-col justify-center py-12 sm:py-16">
+    <div class="mx-auto w-full max-w-5xl px-3 sm:px-6 lg:px-10 grow-0">
       <header class="text-center mb-16">
         <h1 class="text-2xl sm:text-3xl lg:text-4xl font-semibold text-slate-800 dark:text-slate-100 mb-1 sm:mb-2">
           Password Entropy Calculator
@@ -29,8 +29,8 @@ const preCalculatedData = hashAlgorithms.map(hash =>
 
       <div class="flex flex-col items-center gap-4 sm:gap-6 mb-16">
         <div class="w-full max-w-100">
-          <label for="password" class="block text-slate-700 dark:text-slate-300 font-medium mb-2">
-            Enter a password to analyze
+          <label for="password" class="block text-center password-label">
+            Enter Sample Password
           </label>
           <div class="password-input-wrapper">
             <input
@@ -74,44 +74,44 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="table-container p-2 sm:p-4 rounded-xl sm:rounded-2xl overflow-hidden">
-        <div class="overflow-x-scroll sm:overflow-x-auto rounded-lg">
-          <table class="crack-table">
-            <thead>
-              <tr>
-                <th class="corner-cell">
-                  <span class="hash-label">Hash Algorithm</span>
-                  <span class="gpu-label">Attacker GPUs</span>
-                </th>
-                {gpuScales.map((gpu, index) => (
-                  <th class="gpu-header" data-gpu-index={index}>{gpu.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {hashAlgorithms.map((hash, rowIndex) => (
-                <tr>
-                  <th class="hash-header" data-hash-index={rowIndex}>{hash.label}</th>
-                  {gpuScales.map((gpu, colIndex) => {
-                    const cell = preCalculatedData[rowIndex][colIndex];
-                    return (
-                      <td
-                        class={`value-cell ${cell.tier}`}
-                        data-hash-key={hash.key}
-                        data-gpu-count={gpu.gpuCount}
-                      >
-                        <span class="value" style={`opacity: ${cell.opacity}`}>{cell.text}</span>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div class="w-full overflow-x-auto px-2">
+      <table class="crack-table mx-auto">
+        <thead>
+          <tr>
+            <th class="corner-cell">
+              <span class="hash-label">Hash Algorithm</span>
+              <span class="gpu-label">Attacker GPUs</span>
+            </th>
+            {gpuScales.map((gpu, index) => (
+              <th class="gpu-header" data-gpu-index={index}>{gpu.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {hashAlgorithms.map((hash, rowIndex) => (
+            <tr>
+              <th class="hash-header" data-hash-index={rowIndex}>{hash.label}</th>
+              {gpuScales.map((gpu, colIndex) => {
+                const cell = preCalculatedData[rowIndex][colIndex];
+                return (
+                  <td
+                    class={`value-cell ${cell.tier}`}
+                    data-hash-key={hash.key}
+                    data-gpu-count={gpu.gpuCount}
+                  >
+                    <span class="value" style={`opacity: ${cell.opacity}`}>{cell.text}</span>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
 
+    <div class="mx-auto w-full max-w-5xl px-3 sm:px-6 lg:px-10 grow-0">
       <div class="mt-8 text-center text-slate-600 dark:text-slate-400">
         <p class="font-medium mb-2">How to read this table</p>
         <p class="text-sm max-w-2xl mx-auto mb-4">
@@ -205,7 +205,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     min-width: 100px;
   }
 
-  .entropy-label {
+  .entropy-label, .password-label {
     font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
@@ -241,15 +241,18 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     .strength-badge.tier-5 { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
   }
 
-  .table-container {
-    background: rgb(var(--bg-surface));
-    box-shadow: var(--box-shadow);
-  }
-
   .crack-table {
-    width: 100%;
+    --border-size: 16px;
+    --outer-radius: 16px;
+    --inner-radius: 8px;
+
+    max-width: 64rem;
     border-collapse: separate;
     border-spacing: 0;
+    border: var(--border-size) solid white;
+    border-radius: var(--outer-radius);
+    box-shadow: var(--box-shadow);
+    background: white;
   }
 
   .crack-table th,
@@ -331,8 +334,24 @@ const preCalculatedData = hashAlgorithms.map(hash =>
 
   .corner-cell, .hash-header {
     position: sticky;
-    left: 0;
+    left: -0.5rem;
     z-index: 1;
+  }
+
+  thead tr:first-child .corner-cell {
+    border-radius: var(--inner-radius) 0 0 0;
+  }
+
+  thead tr:first-child th:last-child {
+    border-radius: 0 var(--inner-radius) 0 0;
+  }
+
+  tbody tr:last-child td:last-child {
+    border-radius: 0 0 var(--inner-radius) 0;
+  }
+
+  tbody tr:last-child th {
+    border-radius: 0 0 0 var(--inner-radius);
   }
 
   .value-cell {
@@ -459,6 +478,12 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     .corner-cell .gpu-label {
       top: 4px;
       right: 8px;
+    }
+
+    .crack-table {
+      --border-size: 12px;
+      --outer-radius: 12px;
+      --inner-radius: 6px;
     }
 
     .crack-table th,
