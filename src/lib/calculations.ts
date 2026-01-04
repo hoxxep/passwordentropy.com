@@ -204,9 +204,9 @@ export function formatCrackTime(seconds: number): string {
 export function getCrackTimeTier(seconds: number): string {
   if (seconds < 600) return 'tier-1';              // < 10 minutes (instant)
   if (seconds < 31557600) return 'tier-2';         // < 1 year
-  if (seconds < 3.1557e12) return 'tier-3';        // < 100k years
-  if (seconds < 3.1557e17) return 'tier-4';        // < 10 billion years
-  return 'tier-5';                                  // >= 10 billion years
+  if (seconds < 3.1557e11) return 'tier-3';        // < 1 thousand ears
+  if (seconds < 3.1557e16) return 'tier-4';        // < 1 billion years
+  return 'tier-5';                                 // >= 1 billion years
 }
 
 /**
@@ -252,9 +252,9 @@ export function getStrengthLabel(entropy?: number): string {
 export function getStrengthTier(entropy?: number): string {
   if (entropy === undefined) return '';
   if (entropy < 28) return 'tier-2';
-  if (entropy < 36) return 'tier-2';
-  if (entropy < 60) return 'tier-3';
-  if (entropy < 80) return 'tier-4';
+  if (entropy < 36) return 'tier-2'; // ^^ red
+  if (entropy < 60) return 'tier-3'; // yellow
+  if (entropy < 80) return 'tier-5'; // .. green
   return 'tier-5';
 }
 
@@ -409,6 +409,6 @@ export function calculatePenalizedEntropy(
 
   return {
     entropy: finalEntropy,
-    isPenalized: finalEntropy < originalEntropy,
+    isPenalized: breachCount > 0,
   };
 }
