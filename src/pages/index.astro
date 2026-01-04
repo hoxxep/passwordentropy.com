@@ -240,18 +240,19 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     font-size: 0.875rem;
   }
 
-  .strength-badge.tier-1 { background: rgba(100, 116, 139, 0.15); color: #64748b; }
-  .strength-badge.tier-2 { background: rgba(5, 150, 105, 0.15); color: #059669; }
-  .strength-badge.tier-3 { background: rgba(37, 99, 235, 0.15); color: #2563eb; }
-  .strength-badge.tier-4 { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
-  .strength-badge.tier-5 { background: rgba(219, 39, 119, 0.15); color: #db2777; }
+  /* Strength badge: purple (very weak), red (weak), grey (moderate), blue (strong), green (very strong) */
+  .strength-badge.tier-1 { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
+  .strength-badge.tier-2 { background: rgba(220, 38, 38, 0.15); color: #dc2626; }
+  .strength-badge.tier-3 { background: rgba(100, 116, 139, 0.15); color: #64748b; }
+  .strength-badge.tier-4 { background: rgba(37, 99, 235, 0.15); color: #2563eb; }
+  .strength-badge.tier-5 { background: rgba(22, 163, 74, 0.15); color: #16a34a; }
 
   @media (prefers-color-scheme: dark) {
-    .strength-badge.tier-1 { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
-    .strength-badge.tier-2 { background: rgba(52, 211, 153, 0.2); color: #34d399; }
-    .strength-badge.tier-3 { background: rgba(96, 165, 250, 0.2); color: #60a5fa; }
-    .strength-badge.tier-4 { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
-    .strength-badge.tier-5 { background: rgba(244, 114, 182, 0.2); color: #f472b6; }
+    .strength-badge.tier-1 { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
+    .strength-badge.tier-2 { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+    .strength-badge.tier-3 { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+    .strength-badge.tier-4 { background: rgba(96, 165, 250, 0.2); color: #60a5fa; }
+    .strength-badge.tier-5 { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
   }
 
   .table-container {
@@ -372,42 +373,43 @@ const preCalculatedData = hashAlgorithms.map(hash =>
   }
 
   /* Color coding based on crack time */
-  .value-cell.tier-1 .value { color: #64748b; }
-  .value-cell.tier-2 .value { color: #059669; }
-  .value-cell.tier-3 .value { color: #2563eb; }
-  .value-cell.tier-4 .value { color: #7c3aed; }
-  .value-cell.tier-5 .value { color: #db2777; }
+  /* tier-1: purple (instant), tier-2: red, tier-3: orange, tier-4: yellow, tier-5: green */
+  .value-cell.tier-1 .value { color: #7c3aed; }
+  .value-cell.tier-2 .value { color: #dc2626; }
+  .value-cell.tier-3 .value { color: #ea580c; }
+  .value-cell.tier-4 .value { color: #ca8a04; }
+  .value-cell.tier-5 .value { color: #16a34a; }
 
-  .value-cell.tier-1 { background: rgba(100, 116, 139, 0.04); }
-  .value-cell.tier-2 { background: rgba(5, 150, 105, 0.06); }
-  .value-cell.tier-3 { background: rgba(37, 99, 235, 0.06); }
-  .value-cell.tier-4 { background: rgba(124, 58, 237, 0.06); }
-  .value-cell.tier-5 { background: rgba(219, 39, 119, 0.06); }
+  .value-cell.tier-1 { background: rgba(124, 58, 237, 0.06); }
+  .value-cell.tier-2 { background: rgba(220, 38, 38, 0.06); }
+  .value-cell.tier-3 { background: rgba(234, 88, 12, 0.06); }
+  .value-cell.tier-4 { background: rgba(202, 138, 4, 0.06); }
+  .value-cell.tier-5 { background: rgba(22, 163, 74, 0.06); }
 
-  .value-cell.tier-1:hover { background: rgba(100, 116, 139, 0.1); }
-  .value-cell.tier-2:hover { background: rgba(5, 150, 105, 0.12); }
-  .value-cell.tier-3:hover { background: rgba(37, 99, 235, 0.12); }
-  .value-cell.tier-4:hover { background: rgba(124, 58, 237, 0.12); }
-  .value-cell.tier-5:hover { background: rgba(219, 39, 119, 0.12); }
+  .value-cell.tier-1:hover { background: rgba(124, 58, 237, 0.12); }
+  .value-cell.tier-2:hover { background: rgba(220, 38, 38, 0.12); }
+  .value-cell.tier-3:hover { background: rgba(234, 88, 12, 0.12); }
+  .value-cell.tier-4:hover { background: rgba(202, 138, 4, 0.12); }
+  .value-cell.tier-5:hover { background: rgba(22, 163, 74, 0.12); }
 
   @media (prefers-color-scheme: dark) {
-    .value-cell.tier-1 .value { color: #94a3b8; }
-    .value-cell.tier-2 .value { color: #34d399; }
-    .value-cell.tier-3 .value { color: #60a5fa; }
-    .value-cell.tier-4 .value { color: #a78bfa; }
-    .value-cell.tier-5 .value { color: #f472b6; }
+    .value-cell.tier-1 .value { color: #a78bfa; }
+    .value-cell.tier-2 .value { color: #f87171; }
+    .value-cell.tier-3 .value { color: #fb923c; }
+    .value-cell.tier-4 .value { color: #facc15; }
+    .value-cell.tier-5 .value { color: #4ade80; }
 
-    .value-cell.tier-1 { background: rgba(148, 163, 184, 0.08); }
-    .value-cell.tier-2 { background: rgba(52, 211, 153, 0.1); }
-    .value-cell.tier-3 { background: rgba(96, 165, 250, 0.1); }
-    .value-cell.tier-4 { background: rgba(167, 139, 250, 0.1); }
-    .value-cell.tier-5 { background: rgba(244, 114, 182, 0.1); }
+    .value-cell.tier-1 { background: rgba(167, 139, 250, 0.1); }
+    .value-cell.tier-2 { background: rgba(248, 113, 113, 0.1); }
+    .value-cell.tier-3 { background: rgba(251, 146, 60, 0.1); }
+    .value-cell.tier-4 { background: rgba(250, 204, 21, 0.1); }
+    .value-cell.tier-5 { background: rgba(74, 222, 128, 0.1); }
 
-    .value-cell.tier-1:hover { background: rgba(148, 163, 184, 0.15); }
-    .value-cell.tier-2:hover { background: rgba(52, 211, 153, 0.18); }
-    .value-cell.tier-3:hover { background: rgba(96, 165, 250, 0.18); }
-    .value-cell.tier-4:hover { background: rgba(167, 139, 250, 0.18); }
-    .value-cell.tier-5:hover { background: rgba(244, 114, 182, 0.18); }
+    .value-cell.tier-1:hover { background: rgba(167, 139, 250, 0.18); }
+    .value-cell.tier-2:hover { background: rgba(248, 113, 113, 0.18); }
+    .value-cell.tier-3:hover { background: rgba(251, 146, 60, 0.18); }
+    .value-cell.tier-4:hover { background: rgba(250, 204, 21, 0.18); }
+    .value-cell.tier-5:hover { background: rgba(74, 222, 128, 0.18); }
   }
 
   .footer {

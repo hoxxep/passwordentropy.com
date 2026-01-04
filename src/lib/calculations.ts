@@ -164,18 +164,18 @@ export function formatCrackTime(seconds: number): string {
 
 /**
  * Get tier for color coding based on crack time.
- * tier-1 (grey): Instant to minutes - very weak
- * tier-2 (green): Hours to days - weak
- * tier-3 (blue): Weeks to months - moderate
- * tier-4 (purple): Years to thousands of years - strong
- * tier-5 (pink): Millions+ years - very strong
+ * tier-1 (purple): Instant - under 10 minutes
+ * tier-2 (red): Minutes/hours/weeks - 10 min to 1 year
+ * tier-3 (orange): Moderate - 1 year to 100k years
+ * tier-4 (yellow): Strong - 100k years to 10 billion years
+ * tier-5 (green): Very strong - 10+ billion years
  */
 export function getCrackTimeTier(seconds: number): string {
-  if (seconds < 60) return 'tier-1';           // < 1 minute
-  if (seconds < 86400) return 'tier-2';        // < 1 day
-  if (seconds < 2592000) return 'tier-3';      // < 30 days
-  if (seconds < 31536000000) return 'tier-4';  // < 1000 years
-  return 'tier-5';                              // >= 1000 years
+  if (seconds < 600) return 'tier-1';              // < 10 minutes (instant)
+  if (seconds < 31557600) return 'tier-2';         // < 1 year
+  if (seconds < 3.1557e12) return 'tier-3';        // < 100k years
+  if (seconds < 3.1557e17) return 'tier-4';        // < 10 billion years
+  return 'tier-5';                                  // >= 10 billion years
 }
 
 /**
