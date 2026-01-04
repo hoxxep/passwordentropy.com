@@ -130,8 +130,8 @@ export function analyzePassword(password: string): {
  * Calculate password entropy in bits using zxcvbn.
  * Converts guessesLog10 to log2: entropy = guessesLog10 * log2(10)
  */
-export function calculateEntropy(password: string): number {
-  if (password.length === 0) return 0;
+export function calculateEntropy(password: string): number | undefined {
+  if (password.length === 0) return undefined;
 
   const result = zxcvbn(password);
   // Convert log10(guesses) to log2(guesses) for bits of entropy
@@ -184,10 +184,10 @@ export function formatCrackTime(seconds: number): string {
   const years = days / 365.25;
   if (years < 1000) return `${Math.round(years)} yrs`;
 
-  if (years < 1e6) return `${(years / 1000).toFixed(1)}k yrs`;
-  if (years < 1e9) return `${(years / 1e6).toFixed(1)}M yrs`;
-  if (years < 1e12) return `${(years / 1e9).toFixed(1)}B yrs`;
-  if (years < 1e15) return `${(years / 1e12).toFixed(1)}T yrs`;
+  if (years < 1e6) return `${(years / 1000).toFixed(0)}k yrs`;
+  if (years < 1e9) return `${(years / 1e6).toFixed(0)}M yrs`;
+  if (years < 1e12) return `${(years / 1e9).toFixed(0)}B yrs`;
+  if (years < 1e15) return `${(years / 1e12).toFixed(0)}T yrs`;
 
   // Beyond trillions of years
   return '∞';
@@ -210,19 +210,10 @@ export function getCrackTimeTier(seconds: number): string {
 }
 
 /**
- * Get opacity based on crack time - fade extremes.
- */
-export function getCrackTimeOpacity(seconds: number): number {
-  // Don't fade, all values are meaningful for this use case
-  return 1;
-}
-
-/**
  * Result of getCellDisplay - all values needed to render a cell.
  */
 export interface CellDisplayResult {
   text: string;
-  opacity: number;
   tier: string;
 }
 
@@ -238,7 +229,6 @@ export function getCellDisplay(
 
   return {
     text: formatCrackTime(crackTime),
-    opacity: getCrackTimeOpacity(crackTime),
     tier: getCrackTimeTier(crackTime),
   };
 }
@@ -246,8 +236,8 @@ export function getCellDisplay(
 /**
  * Get a human-readable description of password strength.
  */
-export function getStrengthLabel(entropy: number): string {
-  if (entropy === 0) return 'None';
+export function getStrengthLabel(entropy?: number): string {
+  if (entropy === undefined) return '-';
   if (entropy < 28) return 'Very Weak';
   if (entropy < 36) return 'Weak';
   if (entropy < 60) return 'Moderate';
@@ -259,11 +249,144 @@ export function getStrengthLabel(entropy: number): string {
 /**
  * Get tier class for entropy strength.
  */
-export function getStrengthTier(entropy: number): string {
-  if (entropy === 0) return '';
-  if (entropy < 28) return 'tier-1';
+export function getStrengthTier(entropy?: number): string {
+  if (entropy === undefined) return '';
+  if (entropy < 28) return 'tier-2';
   if (entropy < 36) return 'tier-2';
   if (entropy < 60) return 'tier-3';
   if (entropy < 80) return 'tier-4';
   return 'tier-5';
+}
+
+/**
+ * Check if a password has been exposed in data breaches using HIBP k-anonymity API.
+ * Returns the number of times the password was seen in breaches, or 0 if not found.
+ * Accepts an optional AbortSignal to cancel in-flight requests.
+ */
+export async function checkHIBP(password: string, signal?: AbortSignal): Promise<number> {
+  if (password.length === 0) return 0;
+
+  // SHA-1 hash the password
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+  // k-anonymity: send only first 5 chars of hash
+  const prefix = hashHex.slice(0, 5);
+  const suffix = hashHex.slice(5);
+
+  try {
+    const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      headers: { 'Add-Padding': 'true' }, // Prevent response length analysis
+      signal,
+    });
+
+    if (!response.ok) return 0;
+
+    const text = await response.text();
+    // Response format: "SUFFIX:COUNT\r\n" per line
+    for (const line of text.split('\r\n')) {
+      const [lineSuffix, count] = line.split(':');
+      if (lineSuffix === suffix) {
+        return parseInt(count, 10);
+      }
+    }
+  } catch {
+    // Network error or aborted, fail silently
+    return 0;
+  }
+
+  return 0;
+}
+
+/**
+ * Format HIBP breach count for display.
+ */
+export function formatBreachCount(count: number): string {
+  if (count === 0) return 'None';
+  if (count < 10000) return `${count}`;
+  if (count < 1000000) return `${(count / 1000).toFixed(0)}k`;
+  return `${(count / 1000000).toFixed(1)}M`;
+}
+
+/**
+ * Get tier class for breach count.
+ */
+export function getBreachTier(count: number): string {
+  if (count === 0) return 'tier-5';  // Green - safe
+  if (count < 10) return 'tier-2';   // Orange - seen a few times
+  return 'tier-2';                     // Purple/Red - heavily compromised
+}
+
+/**
+ * Result of penalized entropy calculation.
+ */
+export interface PenalizedEntropyResult {
+  entropy: number;
+  isPenalized: boolean;
+}
+
+/**
+ * Calculate penalized entropy based on breach count using Zipf's law.
+ *
+ * Attackers try passwords in order of popularity. Password frequency follows
+ * Zipf's law: frequency(rank) = C / rank^s
+ *
+ * From "A Large-Scale Study of Web Password Habits" (Florêncio & Herley) and
+ * subsequent research (https://arxiv.org/pdf/1104.3722), s ≈ 0.78 for passwords.
+ *
+ * Given a password's breach count (frequency), we estimate its rank in the
+ * attacker's priority list, then compute entropy as log2(rank).
+ *
+ * Parameters (pessimistic):
+ * - C = 1,000,000 (frequency of "password", not the highest like "123456" at 42M)
+ * - s = 0.78 (Zipf exponent from research)
+ *
+ * Formula: rank = (C / frequency)^(1/s), entropy = log2(rank)
+ *
+ * Examples:
+ * - 42M breaches ("123456"): rank ≈ 1 → entropy ≈ 0 bits
+ * - 1M breaches ("password"): rank ≈ 1 → entropy ≈ 0 bits
+ * - 100K breaches: rank ≈ 19 → entropy ≈ 4.2 bits
+ * - 10K breaches: rank ≈ 363 → entropy ≈ 8.5 bits
+ * - 1K breaches: rank ≈ 6,918 → entropy ≈ 12.8 bits
+ * - 100 breaches: rank ≈ 132K → entropy ≈ 17 bits
+ * - 10 breaches: rank ≈ 2.5M → entropy ≈ 21.3 bits
+ * - 1 breach: rank ≈ 48M → entropy ≈ 25.5 bits
+ */
+export function calculatePenalizedEntropy(
+  originalEntropy: number,
+  breachCount: number
+): PenalizedEntropyResult {
+  if (breachCount === 0) {
+    return { entropy: originalEntropy, isPenalized: false };
+  }
+
+  // Zipf's law parameters (pessimistic estimates)
+  const C = 1_000_000;  // Frequency of "password" (~1M occurrences)
+  const s = 0.78;       // Zipf exponent from password research
+
+  // Estimate rank from frequency: rank = (C / frequency)^(1/s)
+  // Cap frequency at C to avoid rank < 1 for very common passwords
+  const frequency = Math.min(breachCount, C);
+  const rank = Math.max(1, Math.pow(C / frequency, 1 / s));
+
+  // Entropy is log2(rank) - the number of guesses to reach this password
+  const penalizedEntropy = Math.log2(rank);
+
+  // A hard cap on the maximum entropy for breached passwords.
+  // Password breach sets are around 1B passwords in size, log2(1B) = 30 bits of entropy. We want
+  // to be conservative if the attacker has a more tailored breach list.
+  const breachedEntropyCap = 25.0;
+
+  // Use the lower of original entropy or the Zipf-estimated entropy, with a hard cap of 25 bits
+  console.debug('Calculated penalty', { frequency, rank, penalizedEntropy, originalEntropy, breachedEntropyCap });
+  const finalEntropy = Math.min(originalEntropy, penalizedEntropy, breachedEntropyCap);
+
+  return {
+    entropy: finalEntropy,
+    isPenalized: finalEntropy < originalEntropy,
+  };
 }

@@ -1,11 +1,10 @@
 ---
 import Layout from '@layouts/Layout.astro';
-import { gpuScales, hashAlgorithms, getCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, analyzePassword } from '@lib/calculations';
+import { gpuScales, hashAlgorithms, getCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier } from '@lib/calculations';
 
 // Default password for initial render
 const DEFAULT_PASSWORD = 'Tr0ub4dor&3';
-const defaultEntropy = calculateEntropy(DEFAULT_PASSWORD);
-const defaultAnalysis = analyzePassword(DEFAULT_PASSWORD);
+const defaultEntropy = calculateEntropy(DEFAULT_PASSWORD)!;
 
 // Pre-calculate table values at build time
 const preCalculatedData = hashAlgorithms.map(hash =>
@@ -23,7 +22,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           Password Entropy Calculator
         </h1>
         <p class="text-lg sm:text-xl leading-tight text-slate-600 dark:text-slate-300 mx-auto">
-          How long would it take to crack your password?
+          How long would it take to crack a password?
         </p>
       </header>
 
@@ -66,11 +65,11 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           </div>
           <div class="entropy-stat">
             <span class="entropy-label">Length</span>
-            <span class="entropy-value" id="password-length">{defaultAnalysis.length} chars</span>
+            <span class="entropy-value" id="password-length">{DEFAULT_PASSWORD.length} chars</span>
           </div>
           <div class="entropy-stat">
-            <span class="entropy-label">Charset</span>
-            <span class="entropy-value" id="charset-size">{defaultAnalysis.charsetSize} chars</span>
+            <span class="entropy-label">Breaches</span>
+            <span class="entropy-value strength-badge" id="breach-count">...</span>
           </div>
         </div>
       </div>
@@ -101,7 +100,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
                     data-hash-key={hash.key}
                     data-gpu-count={gpu.gpuCount}
                   >
-                    <span class="value" style={`opacity: ${cell.opacity}`}>{cell.text}</span>
+                    <span class="value">{cell.text}</span>
                   </td>
                 );
               })}
@@ -112,15 +111,14 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     </div>
 
     <div class="mx-auto w-full max-w-5xl px-3 sm:px-6 lg:px-10 grow-0">
-      <div class="mt-8 text-center text-slate-600 dark:text-slate-400">
+      <div class="mt-8 text-center text-slate-500 dark:text-slate-400">
         <p class="font-medium mb-2">How to read this table</p>
         <p class="text-sm max-w-2xl mx-auto mb-4">
           Each cell shows the estimated time to crack your password using a brute-force attack.
           Rows represent different password hashing algorithms (stronger ones like Argon2id take longer to crack).
           Columns represent the attacker's computing power (more GPUs = faster cracking).
           Hash rates are based on RTX 5090 benchmarks.
-          This assumes a random password. Real-world attacks often use dictionary attacks and common patterns first,
-          which can crack weak passwords much faster regardless of length.
+          We use <a class="underline" href="https://haveibeenpwned.com">haveibeenpwned.com</a> to securely check for password breaches, as breached passwords are much less secure.
         </p>
       </div>
 
@@ -210,7 +208,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: rgb(var(--accent-grey-light));
+    color: rgb(var(--accent-grey-medium));
     margin-bottom: 0.25rem;
   }
 
@@ -218,6 +216,16 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     font-size: 1.125rem;
     font-weight: 600;
     color: rgb(var(--accent-grey));
+  }
+
+  .entropy-value.penalized {
+    color: #dc2626;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .entropy-value.penalized {
+      color: #f87171;
+    }
   }
 
   .strength-badge {
@@ -249,10 +257,10 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     max-width: 64rem;
     border-collapse: separate;
     border-spacing: 0;
-    border: var(--border-size) solid white;
+    border: var(--border-size) solid rgb(var(--bg-surface));
     border-radius: var(--outer-radius);
     box-shadow: var(--box-shadow);
-    background: white;
+    background: rgb(var(--bg-surface));
   }
 
   .crack-table th,
@@ -409,6 +417,10 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     .value-cell.tier-5:hover { background: rgba(74, 222, 128, 0.18); }
   }
 
+  .how-to-description {
+    color: rgb(var(--accent-grey-medium));
+  }
+
   .footer-link {
     display: inline-flex;
     align-items: center;
@@ -501,31 +513,21 @@ const preCalculatedData = hashAlgorithms.map(hash =>
 </style>
 
 <script>
-  import { getCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, analyzePassword } from '@lib/calculations';
+  import { getCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy } from '@lib/calculations';
 
   const passwordInput = document.getElementById('password') as HTMLInputElement;
   const toggleVisibility = document.getElementById('toggle-visibility') as HTMLButtonElement;
   const entropyBits = document.getElementById('entropy-bits') as HTMLSpanElement;
   const strengthLabel = document.getElementById('strength-label') as HTMLSpanElement;
   const passwordLength = document.getElementById('password-length') as HTMLSpanElement;
-  const charsetSize = document.getElementById('charset-size') as HTMLSpanElement;
+  const breachCount = document.getElementById('breach-count') as HTMLSpanElement;
   const valueCells = document.querySelectorAll<HTMLTableCellElement>('.value-cell');
 
   let isPasswordVisible = false;
+  let hibpDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let hibpAbortController: AbortController | null = null;
 
-  function updateTable() {
-    const password = passwordInput.value;
-    const entropy = calculateEntropy(password);
-    const analysis = analyzePassword(password);
-
-    // Update entropy display
-    entropyBits.textContent = `${entropy.toFixed(1)} bits`;
-    strengthLabel.textContent = getStrengthLabel(entropy);
-    strengthLabel.className = `entropy-value strength-badge ${getStrengthTier(entropy)}`;
-    passwordLength.textContent = `${analysis.length} chars`;
-    charsetSize.textContent = `${analysis.charsetSize} chars`;
-
-    // Update table cells
+  function updateTableWithEntropy(entropy: number) {
     valueCells.forEach(cell => {
       const hashKey = cell.dataset.hashKey || 'sha256';
       const gpuCount = parseInt(cell.dataset.gpuCount || '1', 10);
@@ -535,7 +537,6 @@ const preCalculatedData = hashAlgorithms.map(hash =>
       const valueSpan = cell.querySelector('.value') as HTMLElement;
       if (valueSpan) {
         valueSpan.textContent = display.text;
-        valueSpan.style.opacity = String(display.opacity);
       }
 
       // Update tier class for color coding
@@ -544,6 +545,59 @@ const preCalculatedData = hashAlgorithms.map(hash =>
         cell.classList.add(display.tier);
       }
     });
+  }
+
+  function updateTable() {
+    const password = passwordInput.value;
+    const entropy = calculateEntropy(password);
+
+    // Update entropy display (will be updated again if HIBP finds breaches)
+    entropyBits.textContent = `${(entropy ?? 0).toFixed(1)} bits`;
+    entropyBits.classList.remove('penalized');
+    strengthLabel.textContent = getStrengthLabel(entropy);
+    strengthLabel.className = `entropy-value strength-badge ${getStrengthTier(entropy)}`;
+    passwordLength.textContent = `${password.length} chars`;
+
+    // Update table cells with original entropy
+    updateTableWithEntropy(entropy ?? 0);
+
+    // Cancel any pending HIBP request and debounce timer
+    if (hibpDebounceTimer) clearTimeout(hibpDebounceTimer);
+    if (hibpAbortController) hibpAbortController.abort();
+    breachCount.textContent = '...';
+    breachCount.className = 'entropy-value strength-badge';
+
+    if (password.length === 0) {
+      breachCount.textContent = '-';
+      return;
+    }
+
+    // Debounced HIBP check (300ms delay to avoid excessive API calls)
+    hibpDebounceTimer = setTimeout(async () => {
+      hibpAbortController = new AbortController();
+      const count = await checkHIBP(password, hibpAbortController.signal);
+      if (hibpAbortController.signal.aborted) return;
+      breachCount.textContent = formatBreachCount(count);
+      breachCount.className = `entropy-value strength-badge ${getBreachTier(count)}`;
+
+      // If password was found in breaches, penalize the entropy
+      if (count > 0) {
+        const { entropy: penalizedEntropy, isPenalized } = calculatePenalizedEntropy(entropy ?? 0, count);
+
+        // Update entropy display with penalized value
+        entropyBits.textContent = `${penalizedEntropy.toFixed(1)} bits`;
+        if (isPenalized) {
+          entropyBits.classList.add('penalized');
+        }
+
+        // Update strength label based on penalized entropy
+        strengthLabel.textContent = getStrengthLabel(penalizedEntropy);
+        strengthLabel.className = `entropy-value strength-badge ${getStrengthTier(penalizedEntropy)}`;
+
+        // Update entire table with penalized entropy
+        updateTableWithEntropy(penalizedEntropy);
+      }
+    }, 300);
   }
 
   function togglePasswordVisibility() {

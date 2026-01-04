@@ -45,8 +45,9 @@
     --accent-blue-light: 175, 212, 255;
     --bg-blue-light: 235, 245, 255;
 
-    --accent-grey: 90, 90, 90;
-    --accent-grey-light: 200, 200, 200;
+    --accent-grey: 90, 95, 105;
+    --accent-grey-medium: 130, 135, 145;
+    --accent-grey-light: 200, 205, 215;
     --bg-grey: 245, 245, 245;
 
     --accent-border: 220, 220, 220;
@@ -66,6 +67,7 @@
         --bg-blue-light: 30, 58, 95;
 
         --accent-grey: 203, 213, 225;
+        --accent-grey-medium: 165, 175, 185;
         --accent-grey-light: 100, 116, 139;
         --bg-grey: 51, 65, 85;
 
