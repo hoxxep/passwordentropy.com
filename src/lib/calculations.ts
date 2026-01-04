@@ -259,24 +259,28 @@ export function getStrengthTier(entropy?: number): string {
 }
 
 /**
- * Check if a password has been exposed in data breaches using HIBP k-anonymity API.
- * Returns the number of times the password was seen in breaches, or 0 if not found.
- * Accepts an optional AbortSignal to cancel in-flight requests.
+ * SHA-1 hash a password and return the hex string.
+ * Works in both browser and Node.js environments.
  */
-export async function checkHIBP(password: string, signal?: AbortSignal): Promise<number> {
-  if (password.length === 0) return 0;
+async function sha1Hash(password: string): Promise<string> {
+  if (typeof globalThis.crypto?.subtle !== 'undefined') {
+    // Browser environment
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  } else {
+    // Node.js environment (build time)
+    const { createHash } = await import('node:crypto');
+    return createHash('sha1').update(password).digest('hex').toUpperCase();
+  }
+}
 
-  // SHA-1 hash the password
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-
-  // k-anonymity: send only first 5 chars of hash
-  const prefix = hashHex.slice(0, 5);
-  const suffix = hashHex.slice(5);
-
+/**
+ * Query the HIBP API with a hash prefix and find the count for a given suffix.
+ */
+async function queryHIBPRange(prefix: string, suffix: string, signal?: AbortSignal): Promise<number> {
   try {
     const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
       headers: { 'Add-Padding': 'true' }, // Prevent response length analysis
@@ -299,6 +303,24 @@ export async function checkHIBP(password: string, signal?: AbortSignal): Promise
   }
 
   return 0;
+}
+
+/**
+ * Check if a password has been exposed in data breaches using HIBP k-anonymity API.
+ * Returns the number of times the password was seen in breaches, or 0 if not found.
+ * Accepts an optional AbortSignal to cancel in-flight requests.
+ * Works in both browser and Node.js (build time) environments.
+ */
+export async function checkHIBP(password: string, signal?: AbortSignal): Promise<number> {
+  if (password.length === 0) return 0;
+
+  const hashHex = await sha1Hash(password);
+
+  // k-anonymity: send only first 5 chars of hash
+  const prefix = hashHex.slice(0, 5);
+  const suffix = hashHex.slice(5);
+
+  return queryHIBPRange(prefix, suffix, signal);
 }
 
 /**

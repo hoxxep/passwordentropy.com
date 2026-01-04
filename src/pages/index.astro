@@ -1,15 +1,19 @@
 ---
 import Layout from '@layouts/Layout.astro';
-import { gpuScales, hashAlgorithms, getCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier } from '@lib/calculations';
+import { gpuScales, hashAlgorithms, getCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy } from '@lib/calculations';
 
 // Default password for initial render
 const DEFAULT_PASSWORD = 'Tr0ub4dor&3';
 const defaultEntropy = calculateEntropy(DEFAULT_PASSWORD)!;
 
-// Pre-calculate table values at build time
+// Pre-fetch HIBP breach count at build time
+const defaultBreachCount = await checkHIBP(DEFAULT_PASSWORD);
+const { entropy: displayEntropy, isPenalized } = calculatePenalizedEntropy(defaultEntropy, defaultBreachCount);
+
+// Pre-calculate table values at build time (using penalized entropy if applicable)
 const preCalculatedData = hashAlgorithms.map(hash =>
   gpuScales.map(gpu =>
-    getCellDisplay(defaultEntropy, hash.key, gpu.gpuCount)
+    getCellDisplay(displayEntropy, hash.key, gpu.gpuCount)
   )
 );
 ---
@@ -33,7 +37,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           </label>
           <div class="password-input-wrapper">
             <input
-              type="password"
+              type="text"
               id="password"
               value={DEFAULT_PASSWORD}
               class="password-input"
@@ -42,11 +46,11 @@ const preCalculatedData = hashAlgorithms.map(hash =>
               spellcheck="false"
             />
             <button type="button" id="toggle-visibility" class="visibility-toggle" aria-label="Toggle password visibility">
-              <svg class="eye-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                 <circle cx="12" cy="12" r="3"></circle>
               </svg>
-              <svg class="eye-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="eye-off-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
                 <line x1="1" y1="1" x2="23" y2="23"></line>
               </svg>
@@ -57,11 +61,11 @@ const preCalculatedData = hashAlgorithms.map(hash =>
         <div class="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 w-auto">
           <div class="entropy-stat">
             <span class="entropy-label">Entropy</span>
-            <span class="entropy-value" id="entropy-bits">{defaultEntropy.toFixed(1)} bits</span>
+            <span class={`entropy-value ${isPenalized ? 'penalized' : ''}`} id="entropy-bits">{displayEntropy.toFixed(1)} bits</span>
           </div>
           <div class="entropy-stat">
             <span class="entropy-label">Strength</span>
-            <span class={`entropy-value strength-badge ${getStrengthTier(defaultEntropy)}`} id="strength-label">{getStrengthLabel(defaultEntropy)}</span>
+            <span class={`entropy-value strength-badge ${getStrengthTier(displayEntropy)}`} id="strength-label">{getStrengthLabel(displayEntropy)}</span>
           </div>
           <div class="entropy-stat">
             <span class="entropy-label">Length</span>
@@ -69,7 +73,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           </div>
           <div class="entropy-stat">
             <span class="entropy-label">Breaches</span>
-            <span class="entropy-value strength-badge" id="breach-count">...</span>
+            <span class={`entropy-value strength-badge ${getBreachTier(defaultBreachCount)}`} id="breach-count">{formatBreachCount(defaultBreachCount)}</span>
           </div>
         </div>
       </div>
@@ -118,7 +122,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           Rows represent different password hashing algorithms (stronger ones like Argon2id take longer to crack).
           Columns represent the attacker's computing power (more GPUs = faster cracking).
           Hash rates are based on RTX 5090 benchmarks.
-          We use <a class="underline" href="https://haveibeenpwned.com">haveibeenpwned.com</a> to securely check for password breaches, as breached passwords are much less secure.
+          We use <a class="underline" href="https://haveibeenpwned.com">haveibeenpwned.com</a> to securely check for password breaches. Breached password entropy is heavily penalised, as they're much less secure.
         </p>
       </div>
 
@@ -523,7 +527,8 @@ const preCalculatedData = hashAlgorithms.map(hash =>
   const breachCount = document.getElementById('breach-count') as HTMLSpanElement;
   const valueCells = document.querySelectorAll<HTMLTableCellElement>('.value-cell');
 
-  let isPasswordVisible = false;
+  let isPasswordVisible = true;
+  let hasReceivedFirstFocus = false;
   let hibpDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let hibpAbortController: AbortController | null = null;
 
@@ -620,6 +625,13 @@ const preCalculatedData = hashAlgorithms.map(hash =>
   toggleVisibility.addEventListener('click', togglePasswordVisibility);
 
   passwordInput.addEventListener('focus', () => {
+    // On first focus, hide the password and select all text
+    if (!hasReceivedFirstFocus) {
+      hasReceivedFirstFocus = true;
+      if (isPasswordVisible) {
+        togglePasswordVisibility();
+      }
+    }
     passwordInput.select();
   });
 
@@ -649,7 +661,4 @@ const preCalculatedData = hashAlgorithms.map(hash =>
       hashHeaders.forEach(h => h.classList.remove('highlight'));
     });
   });
-
-  // Initial table update
-  updateTable();
 </script>
