@@ -1,14 +1,21 @@
 {
-  "name": "passwordentropy-com",
+  "name": "isitworththetime",
   "type": "module",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "author": "Liam Gray <@hoxxep>",
+  "repository": "https://github.com/hoxxep/isitworththetime",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "test": "astro check",
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.16.6"
+    "@astrojs/check": "^0.9.6",
+    "@tailwindcss/vite": "^4.1.17",
+    "astro": "^5.16.4",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3"
   }
 }

@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@font-face {
+    font-family: 'IBM Plex Serif';
+    src:
+        url('/fonts/subset-IBMPlexSerif-SemiBold.woff2') format('woff2'),
+        url('/fonts/subset-IBMPlexSerif-SemiBold.woff') format('woff');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    src:
+        url('/fonts/subset-IBMPlexSans-Regular.woff2') format('woff2'),
+        url('/fonts/subset-IBMPlexSans-Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    src:
+        url('/fonts/subset-IBMPlexSans-Medium.woff2') format('woff2'),
+        url('/fonts/subset-IBMPlexSans-Medium.woff') format('woff');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'IBM Plex Sans';
+    src:
+        url('/fonts/subset-IBMPlexSans-SemiBold.woff2') format('woff2'),
+        url('/fonts/subset-IBMPlexSans-SemiBold.woff') format('woff');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    --accent-blue: 19, 116, 226;
+    --accent-blue-light: 175, 212, 255;
+    --bg-blue-light: 235, 245, 255;
+
+    --accent-grey: 90, 90, 90;
+    --accent-grey-light: 200, 200, 200;
+    --bg-grey: 245, 245, 245;
+
+    --accent-border: 220, 220, 220;
+
+    --bg-surface: 255, 255, 255;
+    --text-primary: 30, 41, 59;
+    --text-secondary: 100, 116, 139;
+    --text-muted: 148, 163, 184;
+
+    --box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --accent-blue: 96, 165, 250;
+        --accent-blue-light: 59, 130, 246;
+        --bg-blue-light: 30, 58, 95;
+
+        --accent-grey: 203, 213, 225;
+        --accent-grey-light: 100, 116, 139;
+        --bg-grey: 51, 65, 85;
+
+        --accent-border: 71, 85, 105;
+
+        --bg-surface: 30, 41, 59;
+        --text-primary: 241, 245, 249;
+        --text-secondary: 203, 213, 225;
+        --text-muted: 148, 163, 184;
+
+        --box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    }
+}
+
+html {
+    font-family: "IBM Plex Sans", -apple-system, system-ui, sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: rgb(248, 250, 252);
+    background-image: linear-gradient(to bottom right, rgb(248, 250, 252), rgb(239, 246, 255));
+    min-height: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+    html {
+        background-color: rgb(15, 23, 42);
+        background-image: linear-gradient(to bottom right, rgb(15, 23, 42), rgb(23, 37, 60));
+    }
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: "IBM Plex Serif", ui-serif, serif;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.site-section {
+    margin: 0 auto;
+    padding: 4rem 40px;
+    width: 100%;
+    max-width: 1024px;
+}
+
+@media (max-width: 1023px) {
+    .site-section {
+        padding: 4rem 24px;
+    }
+}
+
+@media (max-width: 520px) {
+    .site-section {
+        padding: 2rem 12px;
+    }
+}

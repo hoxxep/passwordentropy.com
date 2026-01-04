@@ -1,16 +1,604 @@
 ---
+import Layout from '@layouts/Layout.astro';
+import { gpuScales, hashAlgorithms, getCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, analyzePassword } from '@lib/calculations';
 
+// Default password for initial render
+const DEFAULT_PASSWORD = 'password123';
+const defaultEntropy = calculateEntropy(DEFAULT_PASSWORD);
+const defaultAnalysis = analyzePassword(DEFAULT_PASSWORD);
+
+// Pre-calculate table values at build time
+const preCalculatedData = hashAlgorithms.map(hash =>
+  gpuScales.map(gpu =>
+    getCellDisplay(defaultEntropy, hash.key, gpu.gpuCount)
+  )
+);
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<Layout title="Password Entropy Calculator" description="Calculate your password's entropy and see how long it would take to crack with different hashing algorithms and attacker resources.">
+  <main class="min-h-screen flex flex-col justify-center">
+    <div class="site-section grow-0">
+      <header class="text-center mb-12">
+        <h1 class="text-4xl lg:text-5xl font-semibold text-slate-800 dark:text-slate-100 mb-1 sm:mb-2">
+          Password Entropy Calculator
+        </h1>
+        <p class="text-lg leading-tight text-slate-600 dark:text-slate-300 mx-auto">
+          How long would it take to crack your password?
+        </p>
+      </header>
+
+      <div class="input-section">
+        <div class="password-input-container">
+          <label for="password" class="block text-slate-700 dark:text-slate-300 font-medium mb-2">
+            Enter a password to analyze
+          </label>
+          <div class="password-input-wrapper">
+            <input
+              type="text"
+              id="password"
+              value={DEFAULT_PASSWORD}
+              class="password-input"
+              placeholder="Enter your password..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" id="toggle-visibility" class="visibility-toggle" aria-label="Toggle password visibility">
+              <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg class="eye-off-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="entropy-display">
+          <div class="entropy-stat">
+            <span class="entropy-label">Entropy</span>
+            <span class="entropy-value" id="entropy-bits">{defaultEntropy.toFixed(1)} bits</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Strength</span>
+            <span class={`entropy-value strength-badge ${getStrengthTier(defaultEntropy)}`} id="strength-label">{getStrengthLabel(defaultEntropy)}</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Length</span>
+            <span class="entropy-value" id="password-length">{defaultAnalysis.length} chars</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Charset</span>
+            <span class="entropy-value" id="charset-size">{defaultAnalysis.charsetSize} chars</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <div class="table-wrapper">
+          <table class="crack-table">
+            <thead>
+              <tr>
+                <th class="corner-cell">
+                  <span class="hash-label">Hash Algorithm</span>
+                  <span class="gpu-label">Attacker GPUs</span>
+                </th>
+                {gpuScales.map((gpu, index) => (
+                  <th class="gpu-header" data-gpu-index={index}>{gpu.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {hashAlgorithms.map((hash, rowIndex) => (
+                <tr>
+                  <th class="hash-header" data-hash-index={rowIndex}>{hash.label}</th>
+                  {gpuScales.map((gpu, colIndex) => {
+                    const cell = preCalculatedData[rowIndex][colIndex];
+                    return (
+                      <td
+                        class={`value-cell ${cell.tier}`}
+                        data-hash-key={hash.key}
+                        data-gpu-count={gpu.gpuCount}
+                      >
+                        <span class="value" style={`opacity: ${cell.opacity}`}>{cell.text}</span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-12 text-center text-slate-600 dark:text-slate-400">
+        <p class="font-medium mb-2">How to read this table</p>
+        <p class="text-sm max-w-2xl mx-auto mb-4">
+          Each cell shows the estimated time to crack your password using a brute-force attack.
+          Rows represent different password hashing algorithms (stronger ones like Argon2id take longer to crack).
+          Columns represent the attacker's computing power (more GPUs = faster cracking).
+          Hash rates are based on RTX 4090 benchmarks.
+        </p>
+        <p class="text-xs max-w-2xl mx-auto text-slate-500 dark:text-slate-500">
+          Note: This assumes a random password. Real-world attacks often use dictionary attacks and common patterns first,
+          which can crack weak passwords much faster regardless of length.
+        </p>
+      </div>
+
+      <footer class="footer mt-12">
+        <a href="https://github.com/hoxxep/passwordentropy" target="_blank" rel="noopener noreferrer" class="footer-link">
+          <svg class="footer-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          <span>Star on GitHub</span>
+        </a>
+      </footer>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .input-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .password-input-container {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .password-input-wrapper {
+    display: flex;
+    align-items: center;
+    border: 2px solid rgb(var(--accent-border));
+    border-radius: 8px;
+    background: rgb(var(--bg-surface));
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .password-input-wrapper:focus-within {
+    border-color: rgb(var(--accent-blue));
+    box-shadow: 0 0 0 4px rgba(var(--accent-blue), 0.1);
+  }
+
+  .password-input {
+    flex: 1;
+    font-size: 1.125rem;
+    font-weight: 500;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: rgb(var(--accent-grey));
+    outline: none;
+  }
+
+  .visibility-toggle {
+    padding: 0.75rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: rgb(var(--accent-grey-light));
+    transition: color 0.15s ease;
+  }
+
+  .visibility-toggle:hover {
+    color: rgb(var(--accent-grey));
+  }
+
+  .visibility-toggle svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .visibility-toggle .hidden {
+    display: none;
+  }
+
+  .entropy-display {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .entropy-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    background: rgb(var(--bg-surface));
+    border: 1px solid rgb(var(--accent-border));
+    border-radius: 8px;
+    min-width: 100px;
+  }
+
+  .entropy-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgb(var(--accent-grey-light));
+    margin-bottom: 0.25rem;
+  }
+
+  .entropy-value {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: rgb(var(--accent-grey));
+  }
+
+  .strength-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+  }
+
+  .strength-badge.tier-1 { background: rgba(100, 116, 139, 0.15); color: #64748b; }
+  .strength-badge.tier-2 { background: rgba(5, 150, 105, 0.15); color: #059669; }
+  .strength-badge.tier-3 { background: rgba(37, 99, 235, 0.15); color: #2563eb; }
+  .strength-badge.tier-4 { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
+  .strength-badge.tier-5 { background: rgba(219, 39, 119, 0.15); color: #db2777; }
+
+  @media (prefers-color-scheme: dark) {
+    .strength-badge.tier-1 { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+    .strength-badge.tier-2 { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+    .strength-badge.tier-3 { background: rgba(96, 165, 250, 0.2); color: #60a5fa; }
+    .strength-badge.tier-4 { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
+    .strength-badge.tier-5 { background: rgba(244, 114, 182, 0.2); color: #f472b6; }
+  }
+
+  .table-container {
+    background: rgb(var(--bg-surface));
+    border-radius: 16px;
+    box-shadow: var(--box-shadow);
+    padding: 1rem;
+    overflow: hidden;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+  }
+
+  .crack-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .crack-table th,
+  .crack-table td {
+    padding: 0.875rem 0.75rem;
+    text-align: center;
+    font-size: 0.875rem;
+  }
+
+  .corner-cell {
+    position: relative;
+    background: linear-gradient(25deg, rgb(var(--bg-grey)) 0%, rgb(var(--bg-blue-light)) 100%);
+    min-width: 130px;
+    min-height: 40px;
+    overflow: hidden;
+  }
+
+  .corner-cell .gpu-label,
+  .corner-cell .hash-label {
+    position: absolute;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .corner-cell .hash-label {
+    bottom: 8px;
+    left: 8px;
+    color: rgb(var(--accent-grey));
+  }
+
+  .corner-cell .gpu-label {
+    top: 8px;
+    right: 8px;
+    color: rgb(var(--accent-blue));
+  }
+
+  .gpu-header {
+    background: rgb(var(--bg-blue-light));
+    color: rgb(var(--accent-blue));
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    min-width: 5rem;
+  }
+
+  .gpu-header.highlight {
+    background: rgb(220, 235, 250);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .gpu-header.highlight {
+      background: rgb(37, 99, 180);
+    }
+  }
+
+  .hash-header {
+    background: rgb(var(--bg-grey));
+    color: rgb(var(--accent-grey));
+    font-weight: 600;
+    text-align: left;
+    padding-left: 1rem;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .hash-header.highlight {
+    background: rgb(230, 230, 230);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .hash-header.highlight {
+      background: rgb(71, 85, 105);
+    }
+  }
+
+  .corner-cell, .hash-header {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+  }
+
+  .value-cell {
+    background: rgb(var(--bg-surface));
+    transition: background-color 0.15s ease;
+  }
+
+  .value-cell:hover {
+    background: rgb(var(--bg-blue-light));
+  }
+
+  .value-cell .value {
+    font-weight: 500;
+    color: rgb(var(--accent-grey));
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Color coding based on crack time */
+  .value-cell.tier-1 .value { color: #64748b; }
+  .value-cell.tier-2 .value { color: #059669; }
+  .value-cell.tier-3 .value { color: #2563eb; }
+  .value-cell.tier-4 .value { color: #7c3aed; }
+  .value-cell.tier-5 .value { color: #db2777; }
+
+  .value-cell.tier-1 { background: rgba(100, 116, 139, 0.04); }
+  .value-cell.tier-2 { background: rgba(5, 150, 105, 0.06); }
+  .value-cell.tier-3 { background: rgba(37, 99, 235, 0.06); }
+  .value-cell.tier-4 { background: rgba(124, 58, 237, 0.06); }
+  .value-cell.tier-5 { background: rgba(219, 39, 119, 0.06); }
+
+  .value-cell.tier-1:hover { background: rgba(100, 116, 139, 0.1); }
+  .value-cell.tier-2:hover { background: rgba(5, 150, 105, 0.12); }
+  .value-cell.tier-3:hover { background: rgba(37, 99, 235, 0.12); }
+  .value-cell.tier-4:hover { background: rgba(124, 58, 237, 0.12); }
+  .value-cell.tier-5:hover { background: rgba(219, 39, 119, 0.12); }
+
+  @media (prefers-color-scheme: dark) {
+    .value-cell.tier-1 .value { color: #94a3b8; }
+    .value-cell.tier-2 .value { color: #34d399; }
+    .value-cell.tier-3 .value { color: #60a5fa; }
+    .value-cell.tier-4 .value { color: #a78bfa; }
+    .value-cell.tier-5 .value { color: #f472b6; }
+
+    .value-cell.tier-1 { background: rgba(148, 163, 184, 0.08); }
+    .value-cell.tier-2 { background: rgba(52, 211, 153, 0.1); }
+    .value-cell.tier-3 { background: rgba(96, 165, 250, 0.1); }
+    .value-cell.tier-4 { background: rgba(167, 139, 250, 0.1); }
+    .value-cell.tier-5 { background: rgba(244, 114, 182, 0.1); }
+
+    .value-cell.tier-1:hover { background: rgba(148, 163, 184, 0.15); }
+    .value-cell.tier-2:hover { background: rgba(52, 211, 153, 0.18); }
+    .value-cell.tier-3:hover { background: rgba(96, 165, 250, 0.18); }
+    .value-cell.tier-4:hover { background: rgba(167, 139, 250, 0.18); }
+    .value-cell.tier-5:hover { background: rgba(244, 114, 182, 0.18); }
+  }
+
+  .footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(var(--accent-grey));
+    text-decoration: none;
+    border-radius: 8px;
+    border: 1px solid rgb(var(--accent-border));
+    background: rgb(var(--bg-surface));
+    transition: all 0.15s ease;
+  }
+
+  .footer-link:hover {
+    border-color: rgb(var(--accent-grey-light));
+    background: rgb(var(--bg-grey));
+  }
+
+  .footer-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .input-section {
+      gap: 1rem;
+    }
+
+    .entropy-display {
+      width: 100%;
+    }
+
+    .entropy-stat {
+      flex: 1;
+      min-width: 80px;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .entropy-label {
+      font-size: 0.65rem;
+    }
+
+    .entropy-value {
+      font-size: 0.9rem;
+    }
+
+    .table-container {
+      padding: 0.5rem;
+      border-radius: 12px;
+    }
+
+    .password-input {
+      font-size: 1rem;
+    }
+
+    .corner-cell .hash-label {
+      bottom: 4px;
+      left: 8px;
+    }
+
+    .corner-cell .gpu-label {
+      top: 4px;
+      right: 8px;
+    }
+
+    .crack-table th,
+    .crack-table td {
+      padding: 0.625rem 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .footer {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .footer-link {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+<script>
+  import { getCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, analyzePassword } from '@lib/calculations';
+
+  const passwordInput = document.getElementById('password') as HTMLInputElement;
+  const toggleVisibility = document.getElementById('toggle-visibility') as HTMLButtonElement;
+  const entropyBits = document.getElementById('entropy-bits') as HTMLSpanElement;
+  const strengthLabel = document.getElementById('strength-label') as HTMLSpanElement;
+  const passwordLength = document.getElementById('password-length') as HTMLSpanElement;
+  const charsetSize = document.getElementById('charset-size') as HTMLSpanElement;
+  const valueCells = document.querySelectorAll<HTMLTableCellElement>('.value-cell');
+
+  let isPasswordVisible = true;
+
+  function updateTable() {
+    const password = passwordInput.value;
+    const entropy = calculateEntropy(password);
+    const analysis = analyzePassword(password);
+
+    // Update entropy display
+    entropyBits.textContent = `${entropy.toFixed(1)} bits`;
+    strengthLabel.textContent = getStrengthLabel(entropy);
+    strengthLabel.className = `entropy-value strength-badge ${getStrengthTier(entropy)}`;
+    passwordLength.textContent = `${analysis.length} chars`;
+    charsetSize.textContent = `${analysis.charsetSize} chars`;
+
+    // Update table cells
+    valueCells.forEach(cell => {
+      const hashKey = cell.dataset.hashKey || 'sha256';
+      const gpuCount = parseInt(cell.dataset.gpuCount || '1', 10);
+
+      const display = getCellDisplay(entropy, hashKey, gpuCount);
+
+      const valueSpan = cell.querySelector('.value') as HTMLElement;
+      if (valueSpan) {
+        valueSpan.textContent = display.text;
+        valueSpan.style.opacity = String(display.opacity);
+      }
+
+      // Update tier class for color coding
+      cell.classList.remove('tier-1', 'tier-2', 'tier-3', 'tier-4', 'tier-5');
+      if (display.tier) {
+        cell.classList.add(display.tier);
+      }
+    });
+  }
+
+  function togglePasswordVisibility() {
+    isPasswordVisible = !isPasswordVisible;
+    passwordInput.type = isPasswordVisible ? 'text' : 'password';
+
+    const eyeIcon = toggleVisibility.querySelector('.eye-icon') as SVGElement;
+    const eyeOffIcon = toggleVisibility.querySelector('.eye-off-icon') as SVGElement;
+
+    if (isPasswordVisible) {
+      eyeIcon.classList.remove('hidden');
+      eyeOffIcon.classList.add('hidden');
+    } else {
+      eyeIcon.classList.add('hidden');
+      eyeOffIcon.classList.remove('hidden');
+    }
+  }
+
+  passwordInput.addEventListener('input', updateTable);
+  toggleVisibility.addEventListener('click', togglePasswordVisibility);
+
+  passwordInput.addEventListener('focus', () => {
+    passwordInput.select();
+  });
+
+  // Header highlight on cell hover
+  const gpuHeaders = document.querySelectorAll<HTMLTableCellElement>('.gpu-header');
+  const hashHeaders = document.querySelectorAll<HTMLTableCellElement>('.hash-header');
+
+  valueCells.forEach(cell => {
+    cell.addEventListener('mouseenter', () => {
+      const row = cell.parentElement as HTMLTableRowElement;
+      const cellIndex = Array.from(row.cells).indexOf(cell);
+      const rowIndex = row.rowIndex - 1; // -1 for thead row
+
+      // Highlight column header (cellIndex includes the row header, so -1)
+      if (cellIndex > 0 && gpuHeaders[cellIndex - 1]) {
+        gpuHeaders[cellIndex - 1].classList.add('highlight');
+      }
+
+      // Highlight row header
+      if (hashHeaders[rowIndex]) {
+        hashHeaders[rowIndex].classList.add('highlight');
+      }
+    });
+
+    cell.addEventListener('mouseleave', () => {
+      gpuHeaders.forEach(h => h.classList.remove('highlight'));
+      hashHeaders.forEach(h => h.classList.remove('highlight'));
+    });
+  });
+
+  // Initial table update
+  updateTable();
+</script>
