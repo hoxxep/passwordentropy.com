@@ -61,7 +61,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 w-auto">
+        <div class="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 w-full max-w-2xl">
           <div class="entropy-stat entropy-stat-with-banner">
             <span class="entropy-label">Entropy</span>
             <span class={`entropy-value ${isPenalized ? 'penalized' : ''}`} id="entropy-bits">{displayEntropy.toFixed(1)} bits</span>
@@ -206,7 +206,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 0.75rem 1.25rem;
+    padding: 0.75rem;
     background: rgb(var(--bg-surface));
     border: 1px solid rgb(var(--accent-border));
     border-radius: 8px;
@@ -516,7 +516,7 @@ const preCalculatedData = hashAlgorithms.map(hash =>
   @media (max-width: 640px) {
     .entropy-stat {
       min-width: unset;
-      padding: 0.5rem 0.75rem;
+      padding: 0.5rem;
     }
 
     .entropy-label {
