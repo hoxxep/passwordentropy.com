@@ -85,7 +85,7 @@ const CHARSET_SIZES = {
   lowercase: 26,
   uppercase: 26,
   digits: 10,
-  symbols: 32,  // Common symbols: !@#$%^&*()_+-=[]{}|;':",.<>?/`~
+  symbols: 10,  // Common symbols are: !@#$%^&*()_+-=[]{}|;':",.<>?/`~ but we assume generators only use a subset
   space: 1,
 };
 
@@ -135,7 +135,7 @@ export function calculateEntropy(password: string): number | undefined {
 
   const result = zxcvbn(password);
 
-  if (import.meta.env.PROD) {
+  if (!import.meta.env.PROD) {
     // don't leak to console in prod
     // this fn call should get removed during tree-shaking
     printAdvancedEntropyStats(password, result);
