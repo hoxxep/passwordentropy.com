@@ -4,6 +4,8 @@ A password strength calculator that does things properly.
 
 Most password strength meters are terrible. They check for a capital letter, a number, and call it a day. This one uses real cryptographic research, actual GPU benchmarks, and breach data to tell you how long your password would *actually* take to crack.
 
+Sponsored by [Upon: Digital Inheritance Vaults](https://uponvault.com/?ref=gh-pe).
+
 ## Why "P@ssw0rd!" Gets a Failing Grade
 
 Traditional password meters reward complexity theater: swap an `a` for `@`, add a `1` at the end, and suddenly you're "strong." But attackers aren't stupid. They know about [l33tspeak](https://en.wikipedia.org/wiki/Leet). They have dictionaries of common substitutions. "P@ssw0rd!" isn't 9 random characters drawn from 95 possibilities, it's a predictable mutation of the #4 most common password on the internet.
@@ -12,9 +14,9 @@ Traditional password meters reward complexity theater: swap an `a` for `@`, add 
 
 We combine three signals to estimate how quickly an attacker could crack your password:
 
-1. **Pattern analysis** – [zxcvbn](#zxcvbn-pattern-matching-not-character-counting) decomposes your password into dictionary words, keyboard patterns, and substitutions, then estimates how many guesses it would take
-2. **Breach data** – We check [Have I Been Pwned](#have-i-been-pwned-when-your-password-is-already-public) to see if your password has leaked, then apply a [Zipf's law penalty](#the-zipfs-law-penalty-modeling-attacker-behavior) based on how often it appears
-3. **Real hardware benchmarks** – We use [actual RTX 5090 hashcat speeds](#hash-rate-benchmarks-rtx-5090-numbers) to show crack times across different hash algorithms and attacker resources
+1. **Pattern analysis:** [zxcvbn](#zxcvbn-pattern-matching-not-character-counting) decomposes your password into dictionary words, keyboard patterns, and substitutions, then estimates how many guesses it would take.
+2. **Breach data:** we check [Have I Been Pwned](#have-i-been-pwned-when-your-password-is-already-public) to see if your password has leaked, then apply a [Zipf's law penalty](#the-zipfs-law-penalty-modeling-attacker-behavior) based on how often it appears.
+3. **Real hardware benchmarks:** we use [actual RTX 5090 hashcat speeds](#hash-rate-benchmarks-rtx-5090-numbers) to show crack times across different hash algorithms and attacker resources.
 
 The final entropy is the *minimum* of the pattern-based estimate and the breach-based estimate. A password in a million breaches is effectively worthless, no matter how random it looks.
 
@@ -166,5 +168,5 @@ The same password, stored properly, goes from being crackable by a well-funded a
 3. **Check your passwords against breaches**: if it's leaked, it's worthless, no matter how random it looks.
 4. **Use unique passwords everywhere**: credential stuffing means one breach compromises all accounts sharing that password.
 5. **Demand proper password storage**: Use a strongly configured key stretching function like Argon2id (ideally with PAKE such as OPAQUE and per-user salts). If a service stores your password with MD5 or SHA, they are failing you.
-6. **80+ bits of entropy remains out of reach**, even for nation-states with theoretical million-GPU clusters. But don't forget [rule #538](https://xkcd.com/538/):
+6. **80+ bits of entropy remains out of reach**, even for nation-states with theoretical million-GPU clusters. But don't forget [rule #538](https://xkcd.com/538/): <br />
    [![xkcd 538: Security](https://imgs.xkcd.com/comics/security.png)](https://xkcd.com/538/)
