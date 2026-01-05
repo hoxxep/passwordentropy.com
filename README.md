@@ -8,7 +8,7 @@ Sponsored by [Upon: Digital Inheritance Vaults](https://uponvault.com/?ref=gh-pe
 
 ## Why "P@ssw0rd!" Gets a Failing Grade
 
-Traditional password meters reward complexity theater: swap an `a` for `@`, add a `1` at the end, and suddenly you're "strong." But attackers aren't stupid. They know about [l33tspeak](https://en.wikipedia.org/wiki/Leet). They have dictionaries of common substitutions. "P@ssw0rd!" isn't 9 random characters drawn from 95 possibilities, it's a predictable mutation of the #4 most common password on the internet.
+Traditional password meters reward complexity theater: swap an `a` for `@`, add a `1` at the end, and suddenly you're "strong." But attackers aren't stupid. They know about [l33tspeak](https://en.wikipedia.org/wiki/Leet). They have dictionaries of common substitutions. "P@ssw0rd!" isn't 9 random characters drawn from 95 possibilities, it's a predictable mutation of the #4 most common password on the internet. In fact, it's been breached 120k times and is likely one of the first passwords an attacker will try!
 
 ### How We Score Passwords
 
@@ -18,7 +18,7 @@ We combine three signals to estimate how quickly an attacker could crack your pa
 2. **Breach data:** we check [Have I Been Pwned](#have-i-been-pwned-when-your-password-is-already-public) to see if your password has leaked, then apply a [Zipf's law penalty](#the-zipfs-law-penalty-modeling-attacker-behavior) based on how often it appears.
 3. **Real hardware benchmarks:** we use [actual RTX 5090 hashcat speeds](#hash-rate-benchmarks-rtx-5090-numbers) to show crack times across different hash algorithms and attacker resources.
 
-The final entropy is the *minimum* of the pattern-based estimate and the breach-based estimate. A password in a million breaches is effectively worthless, no matter how random it looks.
+The final entropy is the *minimum* of the pattern-based estimate and the breach-based estimate. A password in an attackers list from previous breaches is effectively worthless, no matter how random it looks.
 
 ### What Is Password Entropy?
 
@@ -52,6 +52,8 @@ We use [zxcvbn-ts](https://github.com/zxcvbn-ts/zxcvbn), a TypeScript port of Dr
 6. **Dates** – Birthdays and anniversaries are common password components
 
 zxcvbn estimates the number of guesses an attacker would need by finding the *lowest-cost decomposition* of your password into known patterns, which we can then convert into bits via `entropy = log₂(guesses)`.
+
+zxcvbn accurately estimates entropy for human-created passwords but tends to underestimate truly random passwords. For example, "Hn@q8kKYN*" has ~60 bits of true entropy based on its character set, yet zxcvbn estimates only ~33 bits.
 
 ### Have I Been Pwned: When Your Password Is Already Public
 
