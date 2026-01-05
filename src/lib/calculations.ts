@@ -195,17 +195,22 @@ export function formatCrackTime(seconds: number): string {
 
 /**
  * Get tier for color coding based on crack time.
- * tier-1 (purple): Instant - under 10 minutes
- * tier-2 (red): Minutes/hours/weeks - 10 min to 1 year
- * tier-3 (orange): Moderate - 1 year to 100k years
- * tier-4 (yellow): Strong - 100k years to 10 billion years
- * tier-5 (green): Very strong - 10+ billion years
+ *
+ * tier-1 (purple): Instant - under 1 day
+ * tier-2 (red): Days - 1 day to 1 year (365x)
+ * tier-3 (orange): Moderate - 1 year to 1000 years (1,000x)
+ * tier-4 (yellow): Strong - 1000 years to 1 million years (1,000x)
+ * tier-5 (green): Very strong - 1+ million years
+ *
+ * Green is at 1+ million years, so that if Moore's law continues and computing power
+ * per dollar doubles every 2 years for the next 40 years, a password that took 1 million
+ * years to crack will still take 1 year of dedicated effort.
  */
 export function getCrackTimeTier(seconds: number): string {
   if (seconds < 60 * 60 * 24) return 'tier-1';     // < 1 day (instant)
   if (seconds < 31557600) return 'tier-2';         // < 1 year
-  if (seconds < 3.1557e11) return 'tier-3';        // < 1 thousand ears
-  if (seconds < 3.1557e16) return 'tier-4';        // < 1 billion years
+  if (seconds < 3.1557e10) return 'tier-3';        // < 1 thousand ears
+  if (seconds < 3.1557e13) return 'tier-4';        // < 1 million years
   return 'tier-5';                                 // >= 1 billion years
 }
 
