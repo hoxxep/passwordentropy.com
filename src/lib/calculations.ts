@@ -1,6 +1,6 @@
 // Password entropy and crack time calculations
 
-import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
+import {zxcvbn, zxcvbnOptions, type ZxcvbnResult} from '@zxcvbn-ts/core';
 import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
 import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 
@@ -92,7 +92,7 @@ const CHARSET_SIZES = {
 /**
  * Analyze a password and determine which character sets it uses.
  */
-export function analyzePassword(password: string): {
+function analyzePassword(password: string): {
   hasLowercase: boolean;
   hasUppercase: boolean;
   hasDigits: boolean;
@@ -134,8 +134,56 @@ export function calculateEntropy(password: string): number | undefined {
   if (password.length === 0) return undefined;
 
   const result = zxcvbn(password);
+
+  if (import.meta.env.PROD) {
+    // don't leak to console in prod
+    // this fn call should get removed during tree-shaking
+    printAdvancedEntropyStats(password, result);
+  }
+
   // Convert log10(guesses) to log2(guesses) for bits of entropy
   return result.guessesLog10 * Math.log2(10);
+}
+
+/**
+ * Prints to console some advanced stats about a password, for curiosity. This shouldn't be
+ * enabled in prod, to avoid leaking anything to the console.
+ */
+function printAdvancedEntropyStats(password: string, result: ZxcvbnResult) {
+  if (import.meta.env.PROD) {
+    return;  // don't leak to console in prod
+  }
+
+  const zxcvbnEntropy = result.guessesLog10 * Math.log2(10);
+  const zxcvbnScore = result.score;
+
+  // Naive charset size based on character classes present
+  const { charsetSize: charset, length } = analyzePassword(password);
+
+  // Naive entropy: assumes random selection from detected charset
+  const naiveEntropy = charset > 0 ? length * Math.log2(charset) : 0;
+
+  // Shannon entropy: based on actual character frequency distribution
+  // H = -Σ p(x) * log2(p(x)) where p(x) is the frequency of each character
+  const freq = new Map<string, number>();
+  for (const char of password) {
+    freq.set(char, (freq.get(char) || 0) + 1);
+  }
+  let shannonPerChar = 0;
+  for (const count of freq.values()) {
+    const p = count / length;
+    shannonPerChar -= p * Math.log2(p);
+  }
+  const shannonEntropy = shannonPerChar * length;
+
+  console.log({
+    length,
+    charset,
+    zxcvbnScore,
+    zxcvbnEntropy: zxcvbnEntropy.toFixed(1),
+    shannonEntropy: shannonEntropy.toFixed(1),
+    naiveEntropy: naiveEntropy.toFixed(1),
+  });
 }
 
 /**
@@ -143,7 +191,7 @@ export function calculateEntropy(password: string): number | undefined {
  * Time = (2^entropy) / (hashRate * gpuCount)
  * We divide by 2 on average since we expect to find it halfway through the search space.
  */
-export function calculateCrackTime(
+function calculateCrackTime(
   entropy: number,
   hashKey: string,
   gpuCount: number
@@ -166,7 +214,7 @@ export function calculateCrackTime(
  * Format time duration for display.
  * Uses appropriate units from seconds up to billions of years.
  */
-export function formatCrackTime(seconds: number): string {
+function formatCrackTime(seconds: number): string {
   if (seconds < 60) return 'Instant';  // < 1 minute
 
   const minutes = seconds / 60;
@@ -206,7 +254,7 @@ export function formatCrackTime(seconds: number): string {
  * per dollar doubles every 2 years for the next 40 years, a password that took 1 million
  * years to crack will still take 1 year of dedicated effort.
  */
-export function getCrackTimeTier(seconds: number): string {
+function getCrackTimeTier(seconds: number): string {
   if (seconds < 60 * 60 * 24) return 'tier-1';     // < 1 day (instant)
   if (seconds < 31557600) return 'tier-2';         // < 1 year
   if (seconds < 3.1557e10) return 'tier-3';        // < 1 thousand ears
