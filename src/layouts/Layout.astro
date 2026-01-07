@@ -6,8 +6,9 @@ interface Props {
   description?: string;
 }
 
+const siteName = "Password Entropy Calculator"
 const {
-  title = "Password Entropy Calculator",
+  title = siteName,
   description = "Check how strong your password is and how long it would take to crack.",
 } = Astro.props;
 
@@ -27,7 +28,7 @@ const canonicalUrl = siteUrl ? new URL(currentPath, siteUrl).toString() : undefi
   <meta name="og:title" content={title}/>
   <meta name="og:description" content={description}/>
   {canonicalUrl && <meta name="og:url" content={canonicalUrl}/>}
-  <meta name="og:site_name" content="Is it worth the time?"/>
+  <meta name="og:site_name" content={siteName} />
   <meta name="og:image" content={siteUrl + 'og-image.png'}/>
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
