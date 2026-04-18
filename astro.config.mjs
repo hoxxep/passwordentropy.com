@@ -2,13 +2,22 @@
 import {defineConfig} from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 
+// @ts-ignore
+import astroBrokenLinksChecker from "astro-broken-link-checker";
+
 // https://astro.build/config
 export default defineConfig({
     site: 'https://passwordentropy.com',
 
     compressHTML: import.meta.env.PROD,
 
-    integrations: [],
+    integrations: [
+        astroBrokenLinksChecker({
+            logFilePath: "broken-links.log",
+            checkExternalLinks: process.env.CHECK_EXTERNAL_LINKS === "true",
+            throwError: true, // Stop the build if broken links are found
+        }),
+    ],
 
     vite: {
         plugins: [
