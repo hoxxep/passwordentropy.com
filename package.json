@@ -11,14 +11,20 @@
     "test": "astro check",
     "astro": "astro"
   },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=10"
+  },
   "dependencies": {
-    "@astrojs/check": "^0.9.6",
-    "@tailwindcss/vite": "^4.1.17",
+    "@astrojs/check": "^0.9.8",
+    "@tailwindcss/vite": "^4.2.2",
     "@zxcvbn-ts/core": "^3.0.4",
     "@zxcvbn-ts/language-common": "^3.0.4",
     "@zxcvbn-ts/language-en": "^3.0.2",
-    "astro": "^5.16.4",
-    "tailwindcss": "^4.1.17",
+    "astro": "^5.18.1",
+    "astro-broken-link-checker": "github:hoxxep/astro-broken-link-checker#patch",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3"
   }
 }
