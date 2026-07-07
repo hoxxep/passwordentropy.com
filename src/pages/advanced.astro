@@ -107,7 +107,7 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
           </div>
           <div class="entropy-stat">
             <span class="entropy-label">Breaches</span>
-            <span class={`entropy-value strength-badge ${getBreachTier(defaultBreachCount)}`} id="breach-count">{formatBreachCount(defaultBreachCount)}</span>
+            <span class={`entropy-value strength-badge ${getBreachTier(defaultBreachCount)}`} id="breach-count" data-count={defaultBreachCount}>{formatBreachCount(defaultBreachCount)}</span>
           </div>
           <div class="entropy-stat">
             <span class="entropy-label">Hash Rate / GPU</span>
@@ -403,7 +403,9 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
 
   let isPasswordVisible = true;
   let hasReceivedFirstFocus = false;
-  let currentBreachCount = 0;
+  // Seed from the server-rendered breach count so budget/algo/param changes keep
+  // the breach cap until the password is actually changed (which re-checks HIBP).
+  let currentBreachCount = parseInt(breachCount.dataset.count ?? '0', 10) || 0;
   let hibpDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let hibpAbortController: AbortController | null = null;
 
