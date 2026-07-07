@@ -49,6 +49,19 @@ export const hashRates: Record<string, number> = {
   argon2id: 2.2e3,      // ~2.2 kH/s (mode 34000, m=64MiB, t=3, p=1)
 };
 
+// Lower-bound GPU cost in USD per GPU-hour, deliberately pessimistic for the defender.
+//
+// RTX 5090 on-demand rentals run ~$0.40-0.67/hr (Vast.ai, mid-2026), but spot/interruptible
+// instances go as low as ~$0.10-0.20/hr, attackers running their own farm pay closer to
+// electricity cost, and this class of card keeps getting cheaper per hash over time.
+// Consumer cards beat AI-grade GPUs (H100 etc.) on hashes-per-dollar for cracking
+// workloads, so cheap consumer rentals are the right lower bound.
+//
+// Sources:
+// - https://vast.ai/pricing/gpu/RTX-5090
+// - https://getdeploying.com/gpus/nvidia-rtx-5090
+export const gpuCostPerHour = 0.20;
+
 // GPU scale configurations
 export interface GPUScale {
   label: string;
@@ -187,27 +200,45 @@ function printAdvancedEntropyStats(password: string, result: ZxcvbnResult) {
 }
 
 /**
- * Calculate time to crack in seconds.
+ * Calculate time to crack in seconds for a given per-GPU hash rate.
  * Time = (2^entropy) / (hashRate * gpuCount)
  * We divide by 2 on average since we expect to find it halfway through the search space.
  */
+function crackTimeForRate(
+  entropy: number,
+  hashRate: number,
+  gpuCount: number
+): number {
+  if (entropy === 0) return 0;
+
+  // Average case: we find it after trying half the combinations
+  const averageAttempts = Math.pow(2, entropy) / 2;
+
+  return averageAttempts / (hashRate * gpuCount);
+}
+
 function calculateCrackTime(
   entropy: number,
   hashKey: string,
   gpuCount: number
 ): number {
+  return crackTimeForRate(entropy, hashRates[hashKey] || hashRates.sha512, gpuCount);
+}
+
+/**
+ * Calculate the lower-bound cost in USD to crack a password at a given per-GPU hash rate.
+ * Cost = GPU-hours * $/GPU-hour, where GPU-hours = averageAttempts / hashRate / 3600.
+ * Note this is independent of GPU count: more GPUs finish faster but cost the same in total.
+ */
+function crackCostForRate(entropy: number, hashRate: number): number {
   if (entropy === 0) return 0;
 
-  const hashRate = hashRates[hashKey] || hashRates.sha512;
-  const totalHashesPerSecond = hashRate * gpuCount;
+  const gpuSeconds = crackTimeForRate(entropy, hashRate, 1);
+  return (gpuSeconds / 3600) * gpuCostPerHour;
+}
 
-  // Total possible combinations
-  const totalCombinations = Math.pow(2, entropy);
-
-  // Average case: we find it after trying half the combinations
-  const averageAttempts = totalCombinations / 2;
-
-  return averageAttempts / totalHashesPerSecond;
+export function calculateCrackCost(entropy: number, hashKey: string): number {
+  return crackCostForRate(entropy, hashRates[hashKey] || hashRates.sha512);
 }
 
 /**
@@ -239,6 +270,30 @@ function formatCrackTime(seconds: number): string {
 
   // Beyond trillions of years
   return '∞';
+}
+
+/**
+ * Format a USD cost for display, e.g. "<$1", "$45", "$4.5k", "$120M", "$3.2T".
+ */
+function formatCost(dollars: number): string {
+  if (dollars < 1) return '<$1';
+  if (dollars >= 1e15) return '∞';  // beyond quadrillions, match formatCrackTime
+
+  const units: [number, string][] = [
+    [1e12, 'T'],
+    [1e9, 'B'],
+    [1e6, 'M'],
+    [1e3, 'k'],
+  ];
+
+  for (const [value, suffix] of units) {
+    if (dollars >= value) {
+      const scaled = dollars / value;
+      return scaled < 10 ? `$${scaled.toFixed(1)}${suffix}` : `$${Math.round(scaled)}${suffix}`;
+    }
+  }
+
+  return `$${Math.round(dollars)}`;
 }
 
 /**
@@ -283,6 +338,184 @@ export function getCellDisplay(
   return {
     text: formatCrackTime(crackTime),
     tier: getCrackTimeTier(crackTime),
+  };
+}
+
+/**
+ * Get all display values for a cost cell (one per hash algorithm, GPU-count independent).
+ * Cost is a fixed multiple of the single-GPU crack time, so the tier is derived from the
+ * 1 GPU crack time to keep the colors consistent with that column.
+ */
+export function getCostCellDisplay(entropy: number, hashKey: string): CellDisplayResult {
+  const cost = calculateCrackCost(entropy, hashKey);
+
+  return {
+    text: formatCost(cost),
+    tier: getCrackTimeTier(calculateCrackTime(entropy, hashKey, 1)),
+  };
+}
+
+// Tunable parameter definitions per hash algorithm, for the advanced calculator.
+// Defaults match the parameters the hashRates benchmarks were scaled to.
+export interface AlgoParamDef {
+  key: string;
+  label: string;
+  defaultValue: number;
+  min: number;
+  max: number;
+}
+
+export const algoParamDefs: Record<string, AlgoParamDef[]> = {
+  md5: [],
+  sha1: [],
+  sha512: [],
+  pbkdf2: [
+    { key: 'iterations', label: 'Iterations', defaultValue: 310_000, min: 1_000, max: 1e9 },
+  ],
+  bcrypt: [
+    { key: 'cost', label: 'Cost Factor', defaultValue: 10, min: 4, max: 24 },
+  ],
+  scrypt: [
+    { key: 'N', label: 'N (Cost)', defaultValue: 16384, min: 1024, max: 2 ** 26 },
+    { key: 'r', label: 'r (Block Size)', defaultValue: 1, min: 1, max: 64 },
+    { key: 'p', label: 'p (Parallelism)', defaultValue: 1, min: 1, max: 64 },
+  ],
+  argon2id: [
+    { key: 'memory', label: 'Memory (MiB)', defaultValue: 64, min: 8, max: 16384 },
+    { key: 'iterations', label: 'Iterations (t)', defaultValue: 3, min: 1, max: 100 },
+    { key: 'parallelism', label: 'Parallelism (p)', defaultValue: 1, min: 1, max: 64 },
+  ],
+};
+
+/**
+ * Scale the benchmark hash rate for an algorithm to user-supplied parameters.
+ *
+ * Work scales linearly with iterations (PBKDF2), exponentially with bcrypt cost
+ * factor (2^cost rounds), and with N*r*p for scrypt / memory*iterations for Argon2id.
+ * Argon2id parallelism splits work across lanes without changing the total, so it
+ * doesn't meaningfully affect GPU cracking throughput.
+ */
+function scaledHashRate(hashKey: string, params: Record<string, number>): number {
+  const base = hashRates[hashKey] || hashRates.sha512;
+  switch (hashKey) {
+    case 'pbkdf2':
+      return base * 310_000 / (params.iterations || 310_000);
+    case 'bcrypt':
+      return base * Math.pow(2, 10 - (params.cost ?? 10));
+    case 'scrypt':
+      return base * 16384 / ((params.N || 16384) * (params.r || 1) * (params.p || 1));
+    case 'argon2id':
+      return base * (64 * 3) / ((params.memory || 64) * (params.iterations || 3));
+    default:
+      return base;
+  }
+}
+
+/**
+ * Format a per-GPU hash rate for display, e.g. "220 GH/s", "9.5 kH/s".
+ */
+function formatHashRate(rate: number): string {
+  const units: [number, string][] = [
+    [1e12, 'TH/s'],
+    [1e9, 'GH/s'],
+    [1e6, 'MH/s'],
+    [1e3, 'kH/s'],
+  ];
+
+  for (const [value, unit] of units) {
+    if (rate >= value) {
+      const scaled = rate / value;
+      return `${scaled < 10 ? scaled.toFixed(1) : Math.round(scaled)} ${unit}`;
+    }
+  }
+
+  return `${rate < 10 ? rate.toFixed(1) : Math.round(rate)} H/s`;
+}
+
+// Cracking cost per hash halves roughly every 3 years as hardware improves.
+//
+// Real-world estimates of the halving rate:
+// - GPU FLOP/s per dollar doubles every ~2.5 years (2.95 years for top-end cards):
+//   https://epoch.ai/blog/trends-in-gpu-price-performance
+// - Flagship hashcat MD5 throughput per card (GTX 1080 -> RTX 5090) doubled every
+//   ~2.75 years, with rental $/GPU-hour roughly flat across generations
+// - Koomey's law (computations/joule, the long-run floor) slowed to a ~2.6 year
+//   doubling after Dennard scaling ended, and is still slowing
+//
+// All of these curves are decelerating, so a fixed 3-year halving rate remains
+// pessimistic for the defender at long horizons.
+export const costHalvingYears = 3;
+
+/**
+ * Estimate how many years a password stays too expensive to crack for an attacker
+ * with a given budget, assuming cracking cost halves every `costHalvingYears`.
+ * years = costHalvingYears * log2(cost / budget)
+ */
+function calculateProtectionYears(cost: number, budget: number): number {
+  if (budget <= 0) return Infinity;
+  if (cost <= budget) return 0;
+  return costHalvingYears * Math.log2(cost / budget);
+}
+
+function formatProtectionYears(years: number): string {
+  if (years === 0) return 'None';
+  if (years < 1) return '<1 yr';
+  if (years >= 100) return '100+ yrs';
+  return `${Math.round(years)} yrs`;
+}
+
+/**
+ * Tier for color coding the protection horizon.
+ * Green means the secret outlives most secrets worth protecting (40+ years).
+ */
+function getProtectionTier(years: number): string {
+  if (years < 2) return 'tier-1';
+  if (years < 10) return 'tier-2';
+  if (years < 20) return 'tier-3';
+  if (years < 40) return 'tier-4';
+  return 'tier-5';
+}
+
+/**
+ * All display values for the advanced calculator, computed from user-tuned
+ * hash parameters and an attacker budget.
+ */
+export interface AdvancedDisplayResult {
+  hashRateText: string;
+  timeText: string;
+  timeTier: string;
+  costText: string;
+  costTier: string;
+  protectionText: string;
+  protectionTier: string;
+  protectedUntilText: string;
+}
+
+export function getAdvancedDisplay(
+  entropy: number,
+  hashKey: string,
+  params: Record<string, number>,
+  budget: number
+): AdvancedDisplayResult {
+  const hashRate = scaledHashRate(hashKey, params);
+  const time = crackTimeForRate(entropy, hashRate, 1);
+  const cost = crackCostForRate(entropy, hashRate);
+  const years = calculateProtectionYears(cost, budget);
+
+  const protectedUntilText = years > 0 && years < 100
+    ? `until ~${new Date().getFullYear() + Math.round(years)}`
+    : '';
+
+  return {
+    hashRateText: formatHashRate(hashRate),
+    timeText: formatCrackTime(time),
+    timeTier: getCrackTimeTier(time),
+    costText: formatCost(cost),
+    // cost is a fixed multiple of the 1 GPU crack time, keep the colors consistent
+    costTier: getCrackTimeTier(time),
+    protectionText: formatProtectionYears(years),
+    protectionTier: getProtectionTier(years),
+    protectedUntilText,
   };
 }
 
