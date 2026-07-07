@@ -10,6 +10,7 @@ export default defineConfig({
     site: 'https://passwordentropy.com',
 
     compressHTML: import.meta.env.PROD,
+    trailingSlash: "always",
 
     integrations: [
         astroBrokenLinksChecker({

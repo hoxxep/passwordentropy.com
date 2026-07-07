@@ -1,0 +1,554 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { hashAlgorithms, algoParamDefs, gpuCostPerHour, costHalvingYears, getAdvancedDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy } from '@lib/calculations';
+
+// Default values for initial render
+const DEFAULT_PASSWORD = 'Tr0ub4dor&3';
+const DEFAULT_ALGO = 'argon2id';
+const DEFAULT_BUDGET = 1_000_000;
+
+const defaultEntropy = calculateEntropy(DEFAULT_PASSWORD)!;
+
+// Pre-fetch HIBP breach count at build time
+const defaultBreachCount = await checkHIBP(DEFAULT_PASSWORD);
+const { entropy: displayEntropy, isPenalized } = calculatePenalizedEntropy(defaultEntropy, defaultBreachCount);
+
+const defaultParams = Object.fromEntries(
+  algoParamDefs[DEFAULT_ALGO].map(p => [p.key, p.defaultValue])
+);
+const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, DEFAULT_BUDGET);
+---
+
+<Layout title="Advanced Password Entropy Calculator" description="Tune hash algorithm parameters and an attacker budget to estimate how long a password protects your secrets.">
+  <main class="min-h-screen flex flex-col justify-center py-12 sm:py-16">
+    <div class="mx-auto w-full max-w-5xl px-3 sm:px-6 lg:px-10 grow-0">
+      <header class="text-center mb-12">
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-1 sm:mb-2">
+          Advanced Password Entropy Calculator
+        </h1>
+        <p class="text-lg sm:text-xl leading-tight text-slate-600 dark:text-slate-300 mx-auto">
+          How long will a password protect your secrets?
+        </p>
+      </header>
+
+      <div class="flex flex-col items-center gap-6 sm:gap-8 mb-12">
+        <div class="w-full max-w-100">
+          <label for="password" class="block text-center password-label">
+            Enter Sample Password
+          </label>
+          <div class="password-input-wrapper">
+            <input
+              type="text"
+              id="password"
+              value={DEFAULT_PASSWORD}
+              class="password-input"
+              placeholder="Enter a password..."
+              autocomplete="off"
+              spellcheck="false"
+              data-1p-ignore
+              data-lpignore="true"
+              data-form-type="other"
+            />
+            <button type="button" id="toggle-visibility" class="visibility-toggle" aria-label="Toggle password visibility">
+              <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg class="eye-off-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="control">
+            <label for="algo-select">Hash Algorithm</label>
+            <select id="algo-select">
+              {hashAlgorithms.map(hash => (
+                <option value={hash.key} selected={hash.key === DEFAULT_ALGO}>{hash.label}</option>
+              ))}
+            </select>
+          </div>
+          {Object.entries(algoParamDefs).map(([algoKey, defs]) =>
+            defs.map(def => (
+              <div class="control param-group" data-algo={algoKey} hidden={algoKey !== DEFAULT_ALGO}>
+                <label for={`param-${algoKey}-${def.key}`}>{def.label}</label>
+                <input
+                  type="number"
+                  id={`param-${algoKey}-${def.key}`}
+                  data-key={def.key}
+                  value={def.defaultValue}
+                  min={def.min}
+                  max={def.max}
+                />
+              </div>
+            ))
+          )}
+          <div class="control">
+            <label for="budget">Attacker Budget ($)</label>
+            <input type="text" inputmode="numeric" id="budget" value={DEFAULT_BUDGET.toLocaleString('en-US')} />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 w-full max-w-3xl">
+          <div class="entropy-stat">
+            <span class="entropy-label">Entropy</span>
+            <span class={`entropy-value ${isPenalized ? 'penalized' : ''}`} id="entropy-bits">{displayEntropy.toFixed(1)} bits</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Strength</span>
+            <span class={`entropy-value strength-badge ${getStrengthTier(displayEntropy)}`} id="strength-label">{getStrengthLabel(displayEntropy)}</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Length</span>
+            <span class="entropy-value" id="password-length">{DEFAULT_PASSWORD.length} chars</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Breaches</span>
+            <span class={`entropy-value strength-badge ${getBreachTier(defaultBreachCount)}`} id="breach-count">{formatBreachCount(defaultBreachCount)}</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Hash Rate / GPU</span>
+            <span class="entropy-value" id="hash-rate">{display.hashRateText}</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Time on 1 GPU</span>
+            <span class={`entropy-value strength-badge ${display.timeTier}`} id="crack-time">{display.timeText}</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Est. Cost Today</span>
+            <span class={`entropy-value strength-badge ${display.costTier}`} id="crack-cost">{display.costText}</span>
+          </div>
+          <div class="entropy-stat">
+            <span class="entropy-label">Protected For</span>
+            <span class={`entropy-value strength-badge ${display.protectionTier}`} id="protection">{display.protectionText}</span>
+            <span class="protection-subtext" id="protection-until">{display.protectedUntilText}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center text-slate-500 dark:text-slate-400">
+        <p class="text-sm font-medium uppercase mb-1">How this works</p>
+        <p class="text-sm max-w-2xl mx-auto mb-4">
+          Hash rates are scaled from RTX 5090 hashcat benchmarks to your chosen parameters
+          (work grows with iterations, memory, and cost factor).
+          The cost estimate assumes an attacker rents GPUs at ${gpuCostPerHour.toFixed(2)} per GPU-hour,
+          deliberately pessimistic for the defender.
+          "Protected For" estimates how long until cracking becomes cheaper than your secret's value
+          to an attacker, assuming cracking costs halve every {costHalvingYears} years as hardware improves.
+          We use <a class="underline" href="https://haveibeenpwned.com">haveibeenpwned.com</a> to securely check for password breaches and <a class="underline" href="https://github.com/zxcvbn-ts/zxcvbn">zxcvbn</a> to estimate entropy.
+        </p>
+      </div>
+
+      <footer class="flex justify-center items-center gap-8 mt-12 max-sm:flex-col max-sm:gap-4">
+        <a href="/" class="footer-link">
+          <svg class="footer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>Back to the crack time table</span>
+        </a>
+        <a href="https://github.com/hoxxep/passwordentropy.com" target="_blank" class="footer-link">
+          <svg class="footer-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          <span>Star on GitHub</span>
+        </a>
+      </footer>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .password-input-wrapper {
+    display: flex;
+    align-items: center;
+    border: 2px solid rgb(var(--accent-border));
+    border-radius: 8px;
+    background: rgb(var(--bg-surface));
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .password-input-wrapper:focus-within {
+    border-color: rgb(var(--accent-blue));
+    box-shadow: 0 0 0 4px rgba(var(--accent-blue), 0.1);
+  }
+
+  .password-input {
+    flex: 1;
+    font-size: 1.125rem;
+    font-weight: 500;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    padding: 0.75rem 0 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: rgb(var(--accent-grey));
+    outline: none;
+  }
+
+  .visibility-toggle {
+    padding: 0.75rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: rgb(var(--accent-grey-light));
+    transition: color 0.15s ease;
+  }
+
+  .visibility-toggle:hover {
+    color: rgb(var(--accent-grey));
+  }
+
+  .visibility-toggle svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .visibility-toggle .hidden {
+    display: none;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    max-width: 48rem;
+  }
+
+  .control {
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+  }
+
+  .control label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgb(var(--accent-grey-medium));
+    margin-bottom: 0.25rem;
+  }
+
+  .control select,
+  .control input {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(var(--accent-grey));
+    background: rgb(var(--bg-surface));
+    border: 2px solid rgb(var(--accent-border));
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .control select:focus,
+  .control input:focus {
+    border-color: rgb(var(--accent-blue));
+    box-shadow: 0 0 0 4px rgba(var(--accent-blue), 0.1);
+  }
+
+  .control input {
+    width: 130px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .control[hidden] {
+    display: none;
+  }
+
+  .entropy-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgb(var(--bg-surface));
+    border: 1px solid rgb(var(--accent-border));
+    border-radius: 8px;
+    min-width: 100px;
+  }
+
+  .entropy-label, .password-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgb(var(--accent-grey-medium));
+    margin-bottom: 0.25rem;
+    text-align: center;
+  }
+
+  .entropy-value {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: rgb(var(--accent-grey));
+  }
+
+  .entropy-value.penalized {
+    color: #dc2626;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .entropy-value.penalized {
+      color: #f87171;
+    }
+  }
+
+  .protection-subtext {
+    font-size: 0.7rem;
+    color: rgb(var(--accent-grey-medium));
+    margin-top: 0.25rem;
+    min-height: 1em;
+  }
+
+  .strength-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+  }
+
+  /* tier-1: purple, tier-2: red, tier-3: orange, tier-4: yellow, tier-5: green */
+  .strength-badge.tier-1 { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
+  .strength-badge.tier-2 { background: rgba(220, 38, 38, 0.15); color: #dc2626; }
+  .strength-badge.tier-3 { background: rgba(234, 88, 12, 0.15); color: #ea580c; }
+  .strength-badge.tier-4 { background: rgba(202, 138, 4, 0.15); color: #ca8a04; }
+  .strength-badge.tier-5 { background: rgba(22, 163, 74, 0.15); color: #16a34a; }
+
+  @media (prefers-color-scheme: dark) {
+    .strength-badge.tier-1 { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
+    .strength-badge.tier-2 { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+    .strength-badge.tier-3 { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
+    .strength-badge.tier-4 { background: rgba(250, 204, 21, 0.2); color: #facc15; }
+    .strength-badge.tier-5 { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+  }
+
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(var(--accent-grey));
+    text-decoration: none;
+    border-radius: 8px;
+    border: 1px solid rgb(var(--accent-border));
+    background: rgb(var(--bg-surface));
+    transition: all 0.15s ease;
+  }
+
+  .footer-link:hover {
+    border-color: rgb(var(--accent-grey-light));
+    background: rgb(var(--bg-grey));
+  }
+
+  .footer-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .entropy-stat {
+      min-width: unset;
+      padding: 0.5rem;
+    }
+
+    .entropy-label {
+      font-size: 0.65rem;
+    }
+
+    .entropy-value {
+      font-size: 0.9rem;
+    }
+
+    .strength-badge {
+      font-size: 0.75rem;
+    }
+
+    .password-input {
+      font-size: 1rem;
+    }
+
+    .footer-link {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+<script>
+  import { calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy, getAdvancedDisplay } from '@lib/calculations';
+
+  const passwordInput = document.getElementById('password') as HTMLInputElement;
+  const toggleVisibility = document.getElementById('toggle-visibility') as HTMLButtonElement;
+  const algoSelect = document.getElementById('algo-select') as HTMLSelectElement;
+  const budgetInput = document.getElementById('budget') as HTMLInputElement;
+  const entropyBits = document.getElementById('entropy-bits') as HTMLSpanElement;
+  const strengthLabel = document.getElementById('strength-label') as HTMLSpanElement;
+  const passwordLength = document.getElementById('password-length') as HTMLSpanElement;
+  const breachCount = document.getElementById('breach-count') as HTMLSpanElement;
+  const hashRate = document.getElementById('hash-rate') as HTMLSpanElement;
+  const crackTime = document.getElementById('crack-time') as HTMLSpanElement;
+  const crackCost = document.getElementById('crack-cost') as HTMLSpanElement;
+  const protection = document.getElementById('protection') as HTMLSpanElement;
+  const protectionUntil = document.getElementById('protection-until') as HTMLSpanElement;
+  const paramGroups = document.querySelectorAll<HTMLDivElement>('.param-group');
+
+  let isPasswordVisible = true;
+  let hasReceivedFirstFocus = false;
+  let currentBreachCount = 0;
+  let hibpDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let hibpAbortController: AbortController | null = null;
+
+  function readParams(algo: string): Record<string, number> {
+    const params: Record<string, number> = {};
+    document.querySelectorAll<HTMLInputElement>(`.param-group[data-algo="${algo}"] input`).forEach(input => {
+      const min = parseFloat(input.min);
+      const max = parseFloat(input.max);
+      let value = parseFloat(input.value);
+      if (isNaN(value)) value = min;
+      params[input.dataset.key!] = Math.min(max, Math.max(min, value));
+    });
+    return params;
+  }
+
+  function recompute() {
+    const password = passwordInput.value;
+    passwordLength.textContent = `${password.length} chars`;
+
+    if (password.length === 0) {
+      entropyBits.textContent = '-';
+      entropyBits.classList.remove('penalized');
+      strengthLabel.textContent = '-';
+      strengthLabel.className = 'entropy-value strength-badge';
+      crackTime.textContent = '-';
+      crackTime.className = 'entropy-value strength-badge';
+      crackCost.textContent = '-';
+      crackCost.className = 'entropy-value strength-badge';
+      protection.textContent = '-';
+      protection.className = 'entropy-value strength-badge';
+      protectionUntil.textContent = '';
+      return;
+    }
+
+    const rawEntropy = calculateEntropy(password) ?? 0;
+    const { entropy, isPenalized } = calculatePenalizedEntropy(rawEntropy, currentBreachCount);
+
+    entropyBits.textContent = `${entropy.toFixed(1)} bits`;
+    entropyBits.classList.toggle('penalized', isPenalized);
+    strengthLabel.textContent = getStrengthLabel(entropy);
+    strengthLabel.className = `entropy-value strength-badge ${getStrengthTier(entropy)}`;
+
+    const algo = algoSelect.value;
+    const budget = Math.max(1, parseInt(budgetInput.value.replace(/[^0-9]/g, ''), 10) || 1);
+    const display = getAdvancedDisplay(entropy, algo, readParams(algo), budget);
+
+    hashRate.textContent = display.hashRateText;
+    crackTime.textContent = display.timeText;
+    crackTime.className = `entropy-value strength-badge ${display.timeTier}`;
+    crackCost.textContent = display.costText;
+    crackCost.className = `entropy-value strength-badge ${display.costTier}`;
+    protection.textContent = display.protectionText;
+    protection.className = `entropy-value strength-badge ${display.protectionTier}`;
+    protectionUntil.textContent = display.protectedUntilText;
+  }
+
+  function onPasswordChange() {
+    // Breach count is unknown until HIBP responds, don't penalize in the meantime
+    currentBreachCount = 0;
+    recompute();
+
+    if (hibpDebounceTimer) clearTimeout(hibpDebounceTimer);
+    if (hibpAbortController) hibpAbortController.abort();
+    breachCount.textContent = '...';
+    breachCount.className = 'entropy-value strength-badge';
+
+    const password = passwordInput.value;
+    if (password.length === 0) {
+      breachCount.textContent = '-';
+      return;
+    }
+
+    // Debounced HIBP check (300ms delay to avoid excessive API calls)
+    hibpDebounceTimer = setTimeout(async () => {
+      hibpAbortController = new AbortController();
+      const count = await checkHIBP(password, hibpAbortController.signal);
+      if (hibpAbortController.signal.aborted) return;
+      breachCount.textContent = formatBreachCount(count);
+      breachCount.className = `entropy-value strength-badge ${getBreachTier(count)}`;
+      currentBreachCount = count;
+      recompute();
+    }, 300);
+  }
+
+  function formatBudgetInput() {
+    const caret = budgetInput.selectionStart ?? budgetInput.value.length;
+    const digitsBeforeCaret = budgetInput.value.slice(0, caret).replace(/[^0-9]/g, '').length;
+
+    const digits = budgetInput.value.replace(/[^0-9]/g, '').slice(0, 15);
+    budgetInput.value = digits ? parseInt(digits, 10).toLocaleString('en-US') : '';
+
+    // Restore the caret after the same number of digits as before reformatting
+    let pos = 0, seen = 0;
+    while (pos < budgetInput.value.length && seen < digitsBeforeCaret) {
+      if (/[0-9]/.test(budgetInput.value[pos])) seen++;
+      pos++;
+    }
+    budgetInput.setSelectionRange(pos, pos);
+  }
+
+  function onBudgetChange() {
+    formatBudgetInput();
+    recompute();
+  }
+
+  function onAlgoChange() {
+    const algo = algoSelect.value;
+    paramGroups.forEach(group => {
+      group.hidden = group.dataset.algo !== algo;
+    });
+    recompute();
+  }
+
+  function togglePasswordVisibility() {
+    isPasswordVisible = !isPasswordVisible;
+    passwordInput.type = isPasswordVisible ? 'text' : 'password';
+
+    const eyeIcon = toggleVisibility.querySelector('.eye-icon') as SVGElement;
+    const eyeOffIcon = toggleVisibility.querySelector('.eye-off-icon') as SVGElement;
+
+    if (isPasswordVisible) {
+      eyeIcon.classList.remove('hidden');
+      eyeOffIcon.classList.add('hidden');
+    } else {
+      eyeIcon.classList.add('hidden');
+      eyeOffIcon.classList.remove('hidden');
+    }
+  }
+
+  passwordInput.addEventListener('input', onPasswordChange);
+  algoSelect.addEventListener('change', onAlgoChange);
+  budgetInput.addEventListener('input', onBudgetChange);
+  paramGroups.forEach(group => {
+    group.querySelectorAll('input').forEach(input => input.addEventListener('input', recompute));
+  });
+  toggleVisibility.addEventListener('click', togglePasswordVisibility);
+
+  passwordInput.addEventListener('focus', () => {
+    // On first focus, hide the password and select all text
+    if (!hasReceivedFirstFocus) {
+      hasReceivedFirstFocus = true;
+      if (isPasswordVisible) {
+        togglePasswordVisibility();
+      }
+    }
+    passwordInput.select();
+  });
+</script>

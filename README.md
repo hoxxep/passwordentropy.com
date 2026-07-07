@@ -53,7 +53,9 @@ We use [zxcvbn-ts](https://github.com/zxcvbn-ts/zxcvbn), a TypeScript port of Dr
 
 zxcvbn estimates the number of guesses an attacker would need by finding the *lowest-cost decomposition* of your password into known patterns, which we can then convert into bits via `entropy = log₂(guesses)`.
 
-zxcvbn accurately estimates entropy for human-created passwords but tends to underestimate truly random passwords. For example, "Hn@q8kKYN*" has ~60 bits of true entropy based on its character set, yet zxcvbn estimates only ~33 bits.
+zxcvbn accurately estimates entropy for human-created passwords but is *overly pessimistic about truly random ones*. When no pattern matches, zxcvbn scores the remaining characters as a brute-force segment using a fixed cardinality of ~10 guesses per character — modeling an attacker who tries statistically likely characters first — rather than the full charset size. A 12-character random lowercase+digits password has a true entropy of `12 × log₂(36) ≈ 62 bits`, but zxcvbn scores it as roughly `log₂(10¹²) ≈ 36–40 bits`. Similarly, "Hn@q8kKYN*" has ~60 bits of true entropy from its character set, yet zxcvbn estimates only ~33 bits.
+
+For a strength meter this is the right direction to be wrong in: we'd much rather underestimate a random password than overestimate a human one. But keep it in mind when reading the site's numbers for generated passwords — the true crack time and cost are likely *much* higher than displayed.
 
 ### Have I Been Pwned: When Your Password Is Already Public
 
@@ -154,21 +156,69 @@ average_time = (2^entropy) / (2 × hash_rate × gpu_count)
 
 We divide by 2 because on average, you'll find the password halfway through the search space.
 
-A 12-character random password using lowercase letters and digits has about 62 bits of entropy. Here's how crack times differ based on how the site stores your password:
+Take a password with 62 bits of entropy. Here's how crack times differ based on how the site stores your password:
 
-| Storage Method | 1 GPU     | 10k GPUs   | Nation State |
-|----------------|-----------|------------|--------------|
-| MD5            | 105 years | 4 days     | Instant      |
-| Argon2id       | 66M years | 6.6k years | 66 years     |
+| Storage Method | 1 GPU     | 10k GPUs    | Nation State |
+|----------------|-----------|-------------|--------------|
+| MD5            | 4 months  | 18 minutes  | Instant      |
+| Argon2id       | 34M years | 3.4k years  | 34 years     |
 
-The same password, stored properly, goes from being crackable by a well-funded attacker to almost impossible to crack.
+The same password, stored properly, goes from being crackable by a hobbyist to almost impossible to crack.
+
+### Estimating the Cost to Crack
+
+Time tells you *whether* an attacker can crack your password; cost tells you whether it's *worth it*. The cost column estimates the total GPU rental bill:
+
+```
+gpu_hours = (2^entropy) / (2 × hash_rate × 3600)
+cost = gpu_hours × price_per_gpu_hour
+```
+
+Note that cost is independent of how many GPUs the attacker uses: 10,000 GPUs finish 10,000× faster but cost the same in total. That's why the table has a single cost column rather than one per attacker scale.
+
+We price GPU time at **\$0.20 per GPU-hour**, deliberately pessimistic for the defender. On-demand RTX 5090 rentals run [\$0.40–0.67/hr](https://vast.ai/pricing/gpu/RTX-5090), but [spot/interruptible instances](https://getdeploying.com/gpus/nvidia-rtx-5090) go as low as ~\$0.10–0.20/hr, and attackers running their own farms pay closer to electricity cost. Consumer cards also beat AI-grade GPUs (H100 etc.) on hashes-per-dollar for cracking workloads, so cheap consumer rentals are the right lower bound.
+
+Taking the same 62-bit entropy password from above:
+
+| Storage Method | Total GPU Time   | Est. Cost |
+|----------------|------------------|-----------|
+| MD5            | ~3,000 GPU-hours | ~$600     |
+| Argon2id       | ~300B GPU-hours  | ~$60B     |
+
+Stored as MD5, cracking it costs less than a phone. Stored as Argon2id, it costs more than most companies are worth.
+
+### "Protected For": How Long Until Cracking Becomes Affordable
+
+Cracking hardware gets cheaper every year, so a password that costs $60B to crack today won't cost that forever. The [advanced calculator](https://passwordentropy.com/advanced/) lets you enter what your secret is worth to an attacker (their budget) alongside tunable hash parameters, and estimates how long until cracking your password costs less than that:
+
+```
+protected_years = halving_years × log₂(cost_today / attacker_budget)
+```
+
+We assume cracking cost per hash **halves every 3 years**. Real-world estimates of this rate:
+
+- GPU FLOP/s per dollar doubles every [~2.5 years](https://epoch.ai/blog/trends-in-gpu-price-performance) (~2.95 years for top-end cards)
+- Flagship hashcat throughput per card (GTX 1080 → RTX 5090) doubled every ~2.75 years, with rental prices per GPU-hour roughly flat across generations
+- [Koomey's law](https://en.wikipedia.org/wiki/Koomey%27s_law) (computations per joule, the long-run floor set by electricity) slowed to a ~2.6-year doubling after Dennard scaling ended around 2005
+
+All of these curves are decelerating, so a fixed 3-year halving remains pessimistic for the defender at long horizons. It's also why we cap the display at 100+ years: extrapolating exponential hardware improvement beyond a few decades is fiction.
+
+For the 62-bit entropy Argon2id example against a $1M attacker budget: `3 × log₂($60B / $1M) ≈ 48 years` of protection. (Hopefully longer!) The same password stored as MD5 is already crackable for pocket change today.
+
+One caveat cuts the other way: the site's entropy comes from zxcvbn, which [underestimates truly random passwords](#zxcvbn-pattern-matching-not-character-counting) — a random 12-character lowercase+digits password scores ~36–40 bits on the site despite its true 62. Every underestimated bit halves the estimated cost (and shaves 3 years off the horizon), so for generated passwords the displayed "Protected For" is a heavy underestimate. Between the cheap GPU pricing, the aggressive halving rate, and zxcvbn's brute-force pessimism, a random password's real protection should comfortably exceed what we show.
 
 ## The Takeaways
 
-1. **Use a password manager**: randomly generate every password except your master password.
-2. **Entropy beats complexity theater**: 4 random dictionary words ("correct horse battery staple") outperform complex-looking mutations ("Tr0ub4dor&3") because attackers know about l33tspeak.
-3. **Check your passwords against breaches**: if it's leaked, it's worthless, no matter how random it looks.
-4. **Use unique passwords everywhere**: credential stuffing means one breach compromises all accounts sharing that password.
-5. **Demand proper password storage**: Use a strongly configured key stretching function like Argon2id (ideally with PAKE such as OPAQUE and per-user salts). If a service stores your password with MD5 or SHA, they are failing you.
+1. **Use a password manager**: Randomly generate a password for every service, and only need to remember your master password.
+2. **Use long, high-entropy passwords**: Four random dictionary words ("correct horse battery staple") have higher entropy than complex-looking mutations ("Tr0ub4dor&3") because attackers know about l33tspeak.
+3. **Check your passwords against breaches**: If it's leaked, it's worthless, no matter how random it looks.
+4. **Use unique passwords everywhere**: One breach compromises all accounts sharing that password.
+5. **Demand proper password storage**: Ensure services use a strongly configured key stretching function like Argon2id (ideally with PAKE such as OPAQUE and per-user salts). If a service stores your password with MD5 or SHA, they are failing you.
 6. **80+ bits of entropy remains out of reach**, even for nation-states with theoretical million-GPU clusters. But don't forget [rule #538](https://xkcd.com/538/): <br />
    [![xkcd 538: Security](https://imgs.xkcd.com/comics/security.png)](https://xkcd.com/538/)
+
+## Acknowledgements
+
+Built by [Liam Gray](https://github.com/hoxxep) and sponsored by [Upon's Digital Inheritance Vaults](https://uponvault.com/).
+
+This project is source-available and hosted on Github Pages to allow anyone to inspect the underlying source code and verify the integrity of the deployed site.
