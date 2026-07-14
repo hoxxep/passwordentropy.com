@@ -92,12 +92,18 @@ html {
     background-color: rgb(248, 250, 252);
     background-image: linear-gradient(to bottom right, rgb(248, 250, 252), rgb(239, 246, 255));
     min-height: 100%;
+
+    /* Tell the browser to render native UI (scrollbars, form controls) in the matching theme */
+    color-scheme: light;
+    /* Scrollbar colours (thumb, track); keeps overlay scrollbars on iOS/Safari */
+    scrollbar-color: rgb(var(--accent-grey-light)) transparent;
 }
 
 @media (prefers-color-scheme: dark) {
     html {
         background-color: rgb(15, 23, 42);
         background-image: linear-gradient(to bottom right, rgb(15, 23, 42), rgb(23, 37, 60));
+        color-scheme: dark;
     }
 }
 
