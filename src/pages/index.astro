@@ -55,7 +55,7 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
                 data-form-type="other"
               />
             </div>
-            <button type="button" id="generate-password" class="visibility-toggle" aria-label="Generate a random passphrase" title="Generate a random passphrase">
+            <button type="button" id="generate-password" class="visibility-toggle has-tooltip" aria-label="Generate a random passphrase" data-tooltip="Generate a random passphrase">
               <svg class="dice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="4"></rect>
                 <circle cx="8.5" cy="8.5" r="1.25" fill="currentColor" stroke="none"></circle>
@@ -64,7 +64,7 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
                 <circle cx="15.5" cy="15.5" r="1.25" fill="currentColor" stroke="none"></circle>
               </svg>
             </button>
-            <button type="button" id="toggle-visibility" class="visibility-toggle" aria-label="Toggle password visibility">
+            <button type="button" id="toggle-visibility" class="visibility-toggle has-tooltip" aria-label="Hide password" data-tooltip="Hide password">
               <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                 <circle cx="12" cy="12" r="3"></circle>
@@ -198,7 +198,6 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
     border: 2px solid rgb(var(--accent-border));
     border-radius: 8px;
     background: rgb(var(--bg-surface));
-    overflow: hidden;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -212,6 +211,8 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
     flex: 1;
     min-width: 0;  /* let the input shrink rather than stretch the wrapper */
     display: flex;
+    overflow: hidden;
+    border-radius: 6px 0 0 6px;  /* keep the fades inside the wrapper's rounded corners */
   }
 
   /* Long passphrases run past the edge of the box: fade the text out on whichever side
@@ -222,20 +223,39 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 1.75rem;
+    width: 3rem;
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.15s ease;
   }
 
+  /* Eased stops rather than a plain two-stop ramp: a linear alpha fade spends most of
+     its width already near-transparent, so the characters look cut off instead of faded.
+     No opaque plateau, or the edge characters vanish entirely. */
   .password-field::before {
     left: 0;
-    background: linear-gradient(to right, rgb(var(--bg-surface)) 30%, rgba(var(--bg-surface), 0));
+    background: linear-gradient(
+      to right,
+      rgb(var(--bg-surface)),
+      rgba(var(--bg-surface), 0.88) 18%,
+      rgba(var(--bg-surface), 0.65) 40%,
+      rgba(var(--bg-surface), 0.35) 65%,
+      rgba(var(--bg-surface), 0.12) 84%,
+      rgba(var(--bg-surface), 0)
+    );
   }
 
   .password-field::after {
     right: 0;
-    background: linear-gradient(to left, rgb(var(--bg-surface)) 30%, rgba(var(--bg-surface), 0));
+    background: linear-gradient(
+      to left,
+      rgb(var(--bg-surface)),
+      rgba(var(--bg-surface), 0.88) 18%,
+      rgba(var(--bg-surface), 0.65) 40%,
+      rgba(var(--bg-surface), 0.35) 65%,
+      rgba(var(--bg-surface), 0.12) 84%,
+      rgba(var(--bg-surface), 0)
+    );
   }
 
   .password-field.overflow-left::before,
@@ -291,6 +311,73 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
   .visibility-toggle:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .has-tooltip {
+    position: relative;
+  }
+
+  /* Tooltip body and arrow. The body is right-aligned so it never runs off the
+     screen on narrow viewports, while the arrow stays centred under the icon. */
+  .has-tooltip::after,
+  .has-tooltip::before {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 20;
+  }
+
+  .has-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 0.375rem);
+    right: 0;
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    background: rgb(var(--text-primary));
+    color: rgb(var(--bg-surface));
+    font-size: 0.75rem;
+    line-height: 1.2;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: var(--box-shadow);
+  }
+
+  .has-tooltip::before {
+    content: '';
+    position: absolute;
+    top: calc(100% + 0.125rem);
+    left: 50%;
+    width: 0.5rem;
+    height: 0.5rem;
+    transform: translateX(-50%) rotate(45deg);
+    background: rgb(var(--text-primary));
+    border-radius: 1px;
+  }
+
+  /* Hover tooltips have nowhere to go on a touch screen, so only offer them to
+     devices that can actually hover; keyboard users get them on focus. */
+  @media (hover: hover) {
+    .has-tooltip:hover::after,
+    .has-tooltip:hover::before {
+      opacity: 1;
+      visibility: visible;
+      transition-delay: 0.25s;
+    }
+  }
+
+  .has-tooltip:focus-visible::after,
+  .has-tooltip:focus-visible::before {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .has-tooltip::after,
+    .has-tooltip::before {
+      transition: none;
+    }
   }
 
   .dice-icon.rolling {
@@ -846,6 +933,10 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
       eyeIcon.classList.add('hidden');
       eyeOffIcon.classList.remove('hidden');
     }
+
+    const label = isPasswordVisible ? 'Hide password' : 'Show password';
+    toggleVisibility.setAttribute('data-tooltip', label);
+    toggleVisibility.setAttribute('aria-label', label);
   }
 
   async function generateIntoInput() {
