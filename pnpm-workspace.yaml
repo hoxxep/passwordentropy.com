@@ -1,0 +1,3 @@
+# vitest pulls in esbuild, whose postinstall links its platform binary
+onlyBuiltDependencies:
+  - esbuild

@@ -8,8 +8,10 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "test": "astro check",
-    "astro": "astro"
+    "test": "astro check && vitest run",
+    "astro": "astro",
+    "test:unit": "vitest run",
+    "test:watch": "vitest"
   },
   "packageManager": "pnpm@10.33.0",
   "engines": {
@@ -26,5 +28,8 @@
     "astro-broken-link-checker": "github:hoxxep/astro-broken-link-checker#patch",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
   }
 }
