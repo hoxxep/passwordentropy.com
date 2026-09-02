@@ -207,6 +207,46 @@ For the 62-bit entropy Argon2id example against a $1M attacker budget: `3 × log
 
 One caveat cuts the other way: the site's entropy comes from zxcvbn, which [underestimates truly random passwords](#zxcvbn-pattern-matching-not-character-counting) — a random 12-character lowercase+digits password scores ~36–40 bits on the site despite its true 62. Every underestimated bit halves the estimated cost (and shaves 3 years off the horizon), so for generated passwords the displayed "Protected For" is a heavy underestimate. Between the cheap GPU pricing, the aggressive halving rate, and zxcvbn's brute-force pessimism, a random password's real protection should comfortably exceed what we show.
 
+## The Passphrase Generator
+
+The dice button beside the password field generates a passphrase of four random words with no separator, e.g. `axlesalludedturkeysecond`.
+
+### The Wordlist: Orchard Street Long
+
+We use the [Orchard Street Long](https://github.com/sts10/orchard-street-wordlists) wordlist in full: 17,576 words (26³) of 3-15 characters, worth 14.10 bits each. It's built for passphrases rather than as a general dictionary: words are chosen by frequency in Google Books Ngram and Wikipedia, with profanity, proper nouns, most homophones and British spellings removed, and no hyphens or apostrophes.
+
+The list is also *uniquely decodable*: any concatenation of its words can only be split back apart one way, which is what makes joining with no separator safe. An ambiguous list would quietly lose entropy, because `in` + `put` and `input` are the same string and an attacker only has to guess it once. `tests/generator.test.ts` verifies this with the Sardinas-Patterson algorithm.
+
+### Randomness: Rejection Sampling, Not Modulo
+
+Words are drawn with `crypto.getRandomValues` using rejection sampling rather than a modulo. 2^32 is not a multiple of 17,576, so `% 17576` would make the first few thousand words very slightly more likely than the rest.
+
+### Length: Cap the Total, Not the Words
+
+Words run from 3 to 15 characters, so an unconstrained four-word draw lands anywhere between 12 and 60 characters. A 43-character passphrase is much slower to type than a 30-character one without being any stronger, so draws over 36 characters (nine per word) are rejected. This pulls the 95th percentile down from 40 characters to 36 and removes the tail entirely.
+
+Capping the total is far cheaper than dropping long words from the list:
+
+| Approach                                              | Words Remaining | Cost at Four Words |
+|-------------------------------------------------------|-----------------|--------------------|
+| Exclude every word over 9 characters                  | 13,130          | 1.69 bits          |
+| Reject passphrases over 36 characters                 | 17,576          | 0.26 bits          |
+
+The cap only rejects draws that come out long overall, rather than every draw that happens to contain one long word. At any given ceiling, bounding the total is always at least as cheap as bounding each word.
+
+### The Entropy We Report
+
+We know exactly how much randomness went into a generated passphrase, but we only ever report the *lower* of that figure and zxcvbn's independent score of the finished string. The generator never claims more strength than the calculator would give the same password typed in by hand.
+
+To guarantee the two never contradict each other, candidates that zxcvbn rates at or above the entropy we put in are rejected and re-rolled. That isn't free: rejecting on a content-dependent test shrinks the keyspace to the accepted fraction, and an attacker who knows the algorithm only has to search that fraction. So the reported entropy is discounted by `log₂(acceptance_rate)` for both rejection tests together:
+
+```
+entropy = 4 × log₂(17,576) + log₂(acceptance_rate)
+        = 56.4 - 0.86 = 55.5 bits
+```
+
+At four words, 65.8% of draws are both short enough and score low enough under zxcvbn. The discount uses a conservative floor of 55% rather than the measured rate, and the test suite asserts the real rate stays above it.
+
 ## The Takeaways
 
 1. **Use a password manager**: Randomly generate a password for every service, and only need to remember your master password.
@@ -220,5 +260,7 @@ One caveat cuts the other way: the site's entropy comes from zxcvbn, which [unde
 ## Acknowledgements
 
 Built by [Liam Gray](https://github.com/hoxxep) and sponsored by [Upon's Digital Inheritance Vaults](https://uponvault.com/).
+
+The passphrase wordlist is derived from the [Orchard Street Wordlists](https://github.com/sts10/orchard-street-wordlists) by Sam Schlinkert, used under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 This project is source-available and hosted on Github Pages to allow anyone to inspect the underlying source code and verify the integrity of the deployed site.

@@ -70,9 +70,7 @@ export interface GPUScale {
 
 export const gpuScales: GPUScale[] = [
   { label: '1 GPU', gpuCount: 1 },
-  { label: '10 GPUs', gpuCount: 10 },
   { label: '100 GPUs', gpuCount: 100 },
-  { label: '1k GPUs', gpuCount: 1000 },
   { label: '10k GPUs', gpuCount: 10000 },
   { label: 'Nation State', gpuCount: 1000000 },
 ];

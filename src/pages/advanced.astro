@@ -32,23 +32,34 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
       </header>
 
       <div class="flex flex-col items-center gap-6 sm:gap-8 mb-12">
-        <div class="w-full max-w-100">
+        <div class="w-full max-w-125">
           <label for="password" class="block text-center password-label">
             Enter Sample Password
           </label>
           <div class="password-input-wrapper">
-            <input
-              type="text"
-              id="password"
-              value={DEFAULT_PASSWORD}
-              class="password-input"
-              placeholder="Enter a password..."
-              autocomplete="off"
-              spellcheck="false"
-              data-1p-ignore
-              data-lpignore="true"
-              data-form-type="other"
-            />
+            <div class="password-field" id="password-field">
+              <input
+                type="text"
+                id="password"
+                value={DEFAULT_PASSWORD}
+                class="password-input"
+                placeholder="Enter a password..."
+                autocomplete="off"
+                spellcheck="false"
+                data-1p-ignore
+                data-lpignore="true"
+                data-form-type="other"
+              />
+            </div>
+            <button type="button" id="generate-password" class="visibility-toggle" aria-label="Generate a random passphrase" title="Generate a random passphrase">
+              <svg class="dice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="4"></rect>
+                <circle cx="8.5" cy="8.5" r="1.25" fill="currentColor" stroke="none"></circle>
+                <circle cx="15.5" cy="8.5" r="1.25" fill="currentColor" stroke="none"></circle>
+                <circle cx="8.5" cy="15.5" r="1.25" fill="currentColor" stroke="none"></circle>
+                <circle cx="15.5" cy="15.5" r="1.25" fill="currentColor" stroke="none"></circle>
+              </svg>
+            </button>
             <button type="button" id="toggle-visibility" class="visibility-toggle" aria-label="Toggle password visibility">
               <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -129,7 +140,7 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
         </div>
       </div>
 
-      <div class="text-center text-slate-500 dark:text-slate-400">
+      <div class="sm:text-center text-slate-500 dark:text-slate-400">
         <p class="text-sm font-medium uppercase mb-1">How this works</p>
         <p class="text-sm max-w-2xl mx-auto mb-4">
           Hash rates are scaled from RTX 5090 hashcat benchmarks to your chosen parameters
@@ -139,6 +150,7 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
           "Protected For" estimates how long until cracking becomes cheaper than your secret's value
           to an attacker, assuming cracking costs halve every {costHalvingYears} years as hardware improves.
           We use <a class="underline" href="https://haveibeenpwned.com">haveibeenpwned.com</a> to securely check for password breaches and <a class="underline" href="https://github.com/zxcvbn-ts/zxcvbn">zxcvbn</a> to estimate entropy.
+          Built by <a class="underline" href="https://liams.website">Liam Gray</a> and sponsored by <a class="underline" href="https://uponvault.com">Upon</a>'s secure digital inheritance vaults.
         </p>
       </div>
 
@@ -177,8 +189,45 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
     box-shadow: 0 0 0 4px rgba(var(--accent-blue), 0.1);
   }
 
+  .password-field {
+    position: relative;
+    flex: 1;
+    min-width: 0;  /* let the input shrink rather than stretch the wrapper */
+    display: flex;
+  }
+
+  /* Long passphrases run past the edge of the box: fade the text out on whichever side
+     it continues, so it reads as scrollable rather than as if it simply ends there. */
+  .password-field::before,
+  .password-field::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1.75rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .password-field::before {
+    left: 0;
+    background: linear-gradient(to right, rgb(var(--bg-surface)) 30%, rgba(var(--bg-surface), 0));
+  }
+
+  .password-field::after {
+    right: 0;
+    background: linear-gradient(to left, rgb(var(--bg-surface)) 30%, rgba(var(--bg-surface), 0));
+  }
+
+  .password-field.overflow-left::before,
+  .password-field.overflow-right::after {
+    opacity: 1;
+  }
+
   .password-input {
     flex: 1;
+    min-width: 0;
     font-size: 1.125rem;
     font-weight: 500;
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -209,6 +258,36 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
 
   .visibility-toggle .hidden {
     display: none;
+  }
+
+  /* Two buttons now share the right edge of the input, so tighten their horizontal padding */
+  .password-input-wrapper .visibility-toggle {
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+  }
+
+  .password-input-wrapper .visibility-toggle:last-child {
+    padding-right: 0.75rem;
+  }
+
+  .visibility-toggle:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .dice-icon.rolling {
+    animation: dice-roll 0.4s ease;
+  }
+
+  @keyframes dice-roll {
+    from { transform: rotate(-90deg) scale(0.85); }
+    to { transform: rotate(0deg) scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dice-icon.rolling {
+      animation: none;
+    }
   }
 
   .controls {
@@ -328,6 +407,43 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
     .strength-badge.tier-5 { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
   }
 
+  /* Animated placeholder shown while the HIBP breach count is loading */
+  :global(.breach-dots) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22em;
+    height: 1.2em;
+    vertical-align: middle;
+  }
+
+  :global(.breach-dots i) {
+    width: 0.3em;
+    height: 0.3em;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.25;
+    animation: breach-dot-pulse 1.1s ease-in-out infinite;
+  }
+
+  :global(.breach-dots i:nth-child(2)) { animation-delay: 0.15s; }
+  :global(.breach-dots i:nth-child(3)) { animation-delay: 0.3s; }
+
+  @keyframes breach-dot-pulse {
+    0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-0.22em); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.breach-dots i) {
+      animation: breach-dot-fade 1.1s ease-in-out infinite;
+    }
+
+    @keyframes breach-dot-fade {
+      0%, 60%, 100% { opacity: 0.25; }
+      30% { opacity: 1; }
+    }
+  }
+
   .footer-link {
     display: inline-flex;
     align-items: center;
@@ -385,9 +501,12 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
 
 <script>
   import { calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy, getAdvancedDisplay } from '@lib/calculations';
+  import { loadWordlist, generatePassphrase, generatedDisplayEntropy, DEFAULT_WORD_COUNT } from '@lib/generator';
 
   const passwordInput = document.getElementById('password') as HTMLInputElement;
   const toggleVisibility = document.getElementById('toggle-visibility') as HTMLButtonElement;
+  const generateButton = document.getElementById('generate-password') as HTMLButtonElement;
+  const passwordField = document.getElementById('password-field') as HTMLDivElement;
   const algoSelect = document.getElementById('algo-select') as HTMLSelectElement;
   const budgetInput = document.getElementById('budget') as HTMLInputElement;
   const entropyBits = document.getElementById('entropy-bits') as HTMLSpanElement;
@@ -402,6 +521,8 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
   const paramGroups = document.querySelectorAll<HTMLDivElement>('.param-group');
 
   let isPasswordVisible = true;
+  // Exact entropy of the passphrase we last generated, or null once the field is hand-edited
+  let generatedEntropy: number | null = null;
   let hasReceivedFirstFocus = false;
   // Seed from the server-rendered breach count so budget/algo/param changes keep
   // the breach cap until the password is actually changed (which re-checks HIBP).
@@ -424,6 +545,7 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
   function recompute() {
     const password = passwordInput.value;
     passwordLength.textContent = `${password.length} chars`;
+    updateOverflowFades();
 
     if (password.length === 0) {
       entropyBits.textContent = '-';
@@ -440,7 +562,12 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
       return;
     }
 
-    const rawEntropy = calculateEntropy(password) ?? 0;
+    // For a passphrase we generated ourselves we know the exact entropy, but never claim
+    // more than zxcvbn would give the same string had it been typed in by hand.
+    const estimated = calculateEntropy(password);
+    const rawEntropy = (generatedEntropy !== null
+      ? generatedDisplayEntropy(generatedEntropy, estimated)
+      : estimated) ?? 0;
     const { entropy, isPenalized } = calculatePenalizedEntropy(rawEntropy, currentBreachCount);
 
     entropyBits.textContent = `${entropy.toFixed(1)} bits`;
@@ -462,6 +589,17 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
     protectionUntil.textContent = display.protectedUntilText;
   }
 
+  /**
+   * Show the "checking breaches" dots. Reuses the existing dots if they're
+   * already on screen so the animation doesn't restart on every keystroke.
+   */
+  function showBreachLoading() {
+    breachCount.className = 'entropy-value strength-badge';
+    if (!breachCount.firstElementChild?.classList.contains('breach-dots')) {
+      breachCount.innerHTML = '<span class="breach-dots" role="status" aria-label="Checking breaches"><i></i><i></i><i></i></span>';
+    }
+  }
+
   function onPasswordChange() {
     // Breach count is unknown until HIBP responds, don't penalize in the meantime
     currentBreachCount = 0;
@@ -469,8 +607,7 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
 
     if (hibpDebounceTimer) clearTimeout(hibpDebounceTimer);
     if (hibpAbortController) hibpAbortController.abort();
-    breachCount.textContent = '...';
-    breachCount.className = 'entropy-value strength-badge';
+    showBreachLoading();
 
     const password = passwordInput.value;
     if (password.length === 0) {
@@ -519,6 +656,17 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
     recompute();
   }
 
+  /**
+   * Show a fade on whichever side the password continues past the edge of the box.
+   */
+  function updateOverflowFades() {
+    const overflow = passwordInput.scrollWidth - passwordInput.clientWidth;
+    const scrolled = passwordInput.scrollLeft;
+
+    passwordField.classList.toggle('overflow-left', overflow > 1 && scrolled > 1);
+    passwordField.classList.toggle('overflow-right', overflow > 1 && scrolled < overflow - 1);
+  }
+
   function togglePasswordVisibility() {
     isPasswordVisible = !isPasswordVisible;
     passwordInput.type = isPasswordVisible ? 'text' : 'password';
@@ -535,13 +683,52 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
     }
   }
 
-  passwordInput.addEventListener('input', onPasswordChange);
+  async function generateIntoInput() {
+    const diceIcon = generateButton.querySelector('.dice-icon') as SVGElement;
+    diceIcon.classList.remove('rolling');
+    diceIcon.getBoundingClientRect();  // force a reflow so the animation restarts on every click
+    diceIcon.classList.add('rolling');
+    generateButton.disabled = true;
+
+    try {
+      const wordlist = await loadWordlist();
+      const { passphrase, entropy } = generatePassphrase(wordlist, {
+        wordCount: DEFAULT_WORD_COUNT,
+        estimateEntropy: calculateEntropy,
+      });
+
+      generatedEntropy = entropy;
+      passwordInput.value = passphrase;
+
+      // A passphrase you cannot read is no use, so reveal it and stop the first-focus hide
+      hasReceivedFirstFocus = true;
+      if (!isPasswordVisible) togglePasswordVisibility();
+
+      onPasswordChange();
+    } catch (error) {
+      console.error('Could not generate a passphrase:', error);
+    } finally {
+      generateButton.disabled = false;
+    }
+  }
+
+  passwordInput.addEventListener('input', () => {
+    generatedEntropy = null;  // hand-edited, so fall back to the zxcvbn estimate
+    onPasswordChange();
+  });
+  generateButton.addEventListener('click', generateIntoInput);
   algoSelect.addEventListener('change', onAlgoChange);
   budgetInput.addEventListener('input', onBudgetChange);
   paramGroups.forEach(group => {
     group.querySelectorAll('input').forEach(input => input.addEventListener('input', recompute));
   });
-  toggleVisibility.addEventListener('click', togglePasswordVisibility);
+  toggleVisibility.addEventListener('click', () => {
+    togglePasswordVisibility();
+    updateOverflowFades();  // dots and characters are not the same width
+  });
+  passwordInput.addEventListener('scroll', updateOverflowFades);
+  window.addEventListener('resize', updateOverflowFades);
+  updateOverflowFades();
 
   passwordInput.addEventListener('focus', () => {
     // On first focus, hide the password and select all text
