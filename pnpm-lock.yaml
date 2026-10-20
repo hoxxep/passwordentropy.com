@@ -29,6 +29,9 @@ importers:
       astro-broken-link-checker:
         specifier: github:hoxxep/astro-broken-link-checker#patch
         version: astro-broken-links-checker@https://codeload.github.com/hoxxep/astro-broken-link-checker/tar.gz/8e17414920b45d17740ccb73c6e5e0e52d184101
+      hash-wasm:
+        specifier: 4.12.0
+        version: 4.12.0
       tailwindcss:
         specifier: ^4.2.2
         version: 4.2.2
@@ -1356,6 +1359,9 @@ packages:
 
   h3@1.15.11:
     resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
+
+  hash-wasm@4.12.0:
+    resolution: {integrity: sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==}
 
   hast-util-from-html@2.0.3:
     resolution: {integrity: sha512-CUSRHXyKjzHov8yKsQjGOElXy/3EKpyX56ELnkHH34vDVw1N1XSQ1ZcAvTyAPtGqLTuKP/uxM+aLkSPqF/EtMw==}
@@ -3606,6 +3612,8 @@ snapshots:
       radix3: 1.1.2
       ufo: 1.6.3
       uncrypto: 0.1.3
+
+  hash-wasm@4.12.0: {}
 
   hast-util-from-html@2.0.3:
     dependencies:

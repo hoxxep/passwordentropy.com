@@ -518,13 +518,59 @@ export function getAdvancedDisplay(
 }
 
 /**
+ * Display values for the speed page's attack report, comparing the hash rate measured on
+ * the visitor's own device against the scaled RTX 5090 estimate for the same parameters.
+ */
+export interface SpeedDisplayResult {
+  gpuRateText: string;
+  gpuAdvantageText: string;
+  deviceTimeText: string;
+  deviceTimeTier: string;
+  gpuTimeText: string;
+  gpuTimeTier: string;
+  costText: string;
+  costTier: string;
+}
+
+export function getSpeedDisplay(
+  entropy: number,
+  hashKey: string,
+  params: Record<string, number>,
+  deviceHashRate: number
+): SpeedDisplayResult {
+  const gpuRate = scaledHashRate(hashKey, params);
+  const deviceTime = crackTimeForRate(entropy, deviceHashRate, 1);
+  const gpuTime = crackTimeForRate(entropy, gpuRate, 1);
+  const advantage = gpuRate / deviceHashRate;
+
+  return {
+    gpuRateText: formatHashRate(gpuRate),
+    gpuAdvantageText: advantage >= 1
+      ? `≈ ${advantage < 10 ? advantage.toFixed(1) : Math.round(advantage).toLocaleString('en-US')}× this device`
+      : `≈ ${(1 / advantage).toFixed(1)}× slower than this device`,
+    deviceTimeText: formatCrackTime(deviceTime),
+    deviceTimeTier: getCrackTimeTier(deviceTime),
+    gpuTimeText: formatCrackTime(gpuTime),
+    gpuTimeTier: getCrackTimeTier(gpuTime),
+    costText: formatCost(crackCostForRate(entropy, gpuRate)),
+    // cost is a fixed multiple of the 1 GPU crack time, keep the colors consistent
+    costTier: getCrackTimeTier(gpuTime),
+  };
+}
+
+/**
  * Get a human-readable description of password strength.
+ *
+ * Moderate to Strong spans a huge range of attacker cost, so Good splits it at 50 bits:
+ * roughly where a bcrypt or Argon2id hash costs millions of dollars to crack, out of reach
+ * of most targeted attacks, though a fast hash like MD5 still falls within the hour.
  */
 export function getStrengthLabel(entropy?: number): string {
   if (entropy === undefined) return '-';
   if (entropy < 28) return 'Very Weak';
   if (entropy < 36) return 'Weak';
-  if (entropy < 60) return 'Moderate';
+  if (entropy < 50) return 'Moderate';
+  if (entropy < 60) return 'Good';
   if (entropy < 80) return 'Strong';
   if (entropy < 100) return 'Very Strong';
   return 'Excellent';
@@ -535,11 +581,10 @@ export function getStrengthLabel(entropy?: number): string {
  */
 export function getStrengthTier(entropy?: number): string {
   if (entropy === undefined) return '';
-  if (entropy < 28) return 'tier-2';
-  if (entropy < 36) return 'tier-2'; // ^^ red
-  if (entropy < 60) return 'tier-3'; // yellow
-  if (entropy < 80) return 'tier-5'; // .. green
-  return 'tier-5';
+  if (entropy < 36) return 'tier-2';  // Very Weak, Weak
+  if (entropy < 50) return 'tier-3';  // Moderate
+  if (entropy < 60) return 'tier-4';  // Good
+  return 'tier-5';                    // Strong and above
 }
 
 /**

@@ -26,6 +26,7 @@
     "@zxcvbn-ts/language-en": "^3.0.2",
     "astro": "^5.18.1",
     "astro-broken-link-checker": "github:hoxxep/astro-broken-link-checker#patch",
+    "hash-wasm": "4.12.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3"
   },

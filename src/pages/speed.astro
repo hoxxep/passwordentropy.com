@@ -1,0 +1,664 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { algoParamDefs, gpuCostPerHour } from '@lib/calculations';
+import { speedAlgorithms, memoryPerHash, formatBytes } from '@lib/benchmark';
+
+// Default values for initial render; timings can only be measured in the visitor's browser
+const DEFAULT_ALGO = 'argon2id';
+const DEFAULT_ENTROPY = 40;
+
+const defaultParams = Object.fromEntries(
+  algoParamDefs[DEFAULT_ALGO].map(p => [p.key, p.defaultValue])
+);
+const defaultMemory = formatBytes(memoryPerHash(DEFAULT_ALGO, defaultParams));
+
+---
+
+<Layout title="Password Hashing Parameter Benchmark" description="Benchmark Argon2id, scrypt, bcrypt and PBKDF2 parameters in your browser, and see what they cost your server and an attacker.">
+  <main class="min-h-screen flex flex-col justify-center py-12 sm:py-16">
+    <div class="mx-auto w-full max-w-5xl px-3 sm:px-6 lg:px-10 grow-0">
+      <header class="text-center mb-12">
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-semibold text-slate-800 dark:text-slate-100 mb-1 sm:mb-2">
+          Password Hashing Parameter Benchmark
+        </h1>
+        <p class="text-lg sm:text-xl leading-tight text-slate-600 dark:text-slate-300 mx-auto">
+          Test your KSF settings against login time and cracking cost.
+        </p>
+      </header>
+
+      <div class="flex flex-col items-center gap-6 sm:gap-8 mb-12">
+        <div class="controls">
+          <div class="control">
+            <label for="algo-select">Hash Algorithm</label>
+            <select id="algo-select">
+              {speedAlgorithms.map(algo => (
+                <option value={algo.key} selected={algo.key === DEFAULT_ALGO}>{algo.label}</option>
+              ))}
+            </select>
+          </div>
+          {speedAlgorithms.map(({ key: algoKey }) =>
+            algoParamDefs[algoKey].map(def => (
+              <div class="control param-group" data-algo={algoKey} hidden={algoKey !== DEFAULT_ALGO}>
+                <label for={`param-${algoKey}-${def.key}`}>{def.label}</label>
+                <input
+                  type="number"
+                  id={`param-${algoKey}-${def.key}`}
+                  data-key={def.key}
+                  value={def.defaultValue}
+                  min={def.min}
+                  max={def.max}
+                />
+              </div>
+            ))
+          )}
+          <!-- Starts busy: the page benchmarks the defaults as soon as it loads -->
+          <button type="button" id="run" class="action-button running" aria-busy="true">
+            <span class="button-label">Run</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+
+        <section class="report">
+          <h2 class="section-label">On this device</h2>
+          <div class="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 w-full">
+            <div class="entropy-stat">
+              <span class="entropy-label">Login Time</span>
+              <span class="entropy-value" id="wall-time">-</span>
+              <span class="stat-subtext" id="wall-subtext"></span>
+            </div>
+            <div class="entropy-stat">
+              <span class="entropy-label">CPU Time</span>
+              <span class="entropy-value" id="cpu-time">-</span>
+              <span class="stat-subtext">per hash</span>
+            </div>
+            <div class="entropy-stat">
+              <span class="entropy-label">Memory</span>
+              <span class="entropy-value" id="memory">{defaultMemory}</span>
+              <span class="stat-subtext">per hash</span>
+            </div>
+            <div class="entropy-stat">
+              <span class="entropy-label">Logins / sec</span>
+              <span class="entropy-value" id="throughput">-</span>
+              <span class="stat-subtext" id="throughput-subtext">per CPU core</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="report">
+          <div class="entropy-slider">
+            <label for="entropy" class="section-label">
+              Minimum password entropy: <span id="entropy-value">{DEFAULT_ENTROPY} bits</span>
+            </label>
+            <input type="range" id="entropy" min="10" max="100" step="1" value={DEFAULT_ENTROPY} />
+            <span class="stat-subtext" id="entropy-equivalent"></span>
+          </div>
+          <div class="grid grid-cols-2 min-[480px]:grid-cols-4 gap-2 sm:gap-4 w-full">
+            <div class="entropy-stat">
+              <span class="entropy-label">Hash Rate / GPU</span>
+              <span class="entropy-value" id="gpu-rate">-</span>
+              <span class="stat-subtext" id="gpu-advantage"></span>
+            </div>
+            <div class="entropy-stat">
+              <span class="entropy-label">Time on This Device</span>
+              <span class="entropy-value strength-badge" id="device-time">-</span>
+              <span class="stat-subtext" id="device-cores"></span>
+            </div>
+            <div class="entropy-stat">
+              <span class="entropy-label">Time on 1 GPU</span>
+              <span class="entropy-value strength-badge" id="gpu-time">-</span>
+              <span class="stat-subtext">RTX 5090</span>
+            </div>
+            <div class="entropy-stat">
+              <span class="entropy-label">Est. Cost Today</span>
+              <span class="entropy-value strength-badge" id="crack-cost">-</span>
+              <span class="stat-subtext">to crack</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="sm:text-center text-slate-500 dark:text-slate-400">
+        <p class="text-sm font-medium uppercase mb-1">How this works</p>
+        <p class="text-sm max-w-2xl mx-auto mb-4">
+          Hashes run in your browser on WebAssembly (bcrypt, scrypt, Argon2id) or WebCrypto (PBKDF2),
+          which is a fair guide to native server libraries, though your server's CPU and other logins
+          running at the same time will change the numbers.
+          Crack times are the average to find a password with the minimum entropy, assuming an offline attack
+          on a leaked database. GPU rates are scaled from RTX 5090 hashcat benchmarks to your parameters, and the
+          cost assumes ${gpuCostPerHour.toFixed(2)} per GPU-hour, deliberately pessimistic for the defender.
+          Built by <a class="underline" href="https://liams.website">Liam Gray</a> and sponsored by <a class="underline" href="https://uponvault.com">Upon</a>'s secure digital inheritance vaults.
+        </p>
+      </div>
+
+      <footer class="flex justify-center items-center gap-8 mt-12 max-sm:flex-col max-sm:gap-4">
+        <a href="/" class="footer-link">
+          <svg class="footer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>Back to the crack time table</span>
+        </a>
+        <a href="/advanced/" class="footer-link">
+          <svg class="footer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+          </svg>
+          <span>Advanced calculator</span>
+        </a>
+        <a href="https://github.com/hoxxep/passwordentropy.com" target="_blank" class="footer-link">
+          <svg class="footer-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          <span>Star on GitHub</span>
+        </a>
+      </footer>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 0.75rem 1rem;
+    width: 100%;
+  }
+
+  .control {
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+  }
+
+  .control label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgb(var(--accent-grey-medium));
+    margin-bottom: 0.25rem;
+  }
+
+  .control select,
+  .control input {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(var(--accent-grey));
+    background: rgb(var(--bg-surface));
+    border: 2px solid rgb(var(--accent-border));
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .control select:focus,
+  .control input:focus {
+    border-color: rgb(var(--accent-blue));
+    box-shadow: 0 0 0 4px rgba(var(--accent-blue), 0.1);
+  }
+
+  .control input {
+    width: 130px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .control[hidden] {
+    display: none;
+  }
+
+  .action-button {
+    position: relative;
+    min-width: 5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+    background: rgb(var(--accent-blue));
+    border: 2px solid rgb(var(--accent-blue));
+    border-radius: 8px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+  }
+
+  .action-button:hover {
+    filter: brightness(1.08);
+  }
+
+  .action-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(var(--accent-blue), 0.25);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    /* The dark theme's blue is light, so pair it with dark text */
+    .action-button {
+      color: rgb(15, 23, 42);
+    }
+  }
+
+  /* While running, swap the label for a spinner; the hidden label keeps the button's size */
+  .action-button.running .button-label {
+    visibility: hidden;
+  }
+
+  .spinner {
+    display: none;
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .action-button.running .spinner {
+    display: block;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation-duration: 2s;
+    }
+  }
+
+  /* Only shown for errors and warnings */
+  .status:empty {
+    display: none;
+  }
+
+  .status {
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: center;
+    color: rgb(var(--accent-grey));
+  }
+
+  .status.error {
+    color: #dc2626;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .status.error {
+      color: #f87171;
+    }
+  }
+
+  .report {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 48rem;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgb(var(--accent-grey-medium));
+    font-family: inherit;
+  }
+
+  .section-label span {
+    color: rgb(var(--accent-grey));
+    font-weight: 600;
+  }
+
+  .entropy-slider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    width: 100%;
+    max-width: 28rem;
+  }
+
+  .entropy-slider input {
+    width: 100%;
+    accent-color: rgb(var(--accent-blue));
+  }
+
+  .entropy-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem;
+    background: rgb(var(--bg-surface));
+    border: 1px solid rgb(var(--accent-border));
+    border-radius: 8px;
+    min-width: 100px;
+  }
+
+  .entropy-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgb(var(--accent-grey-medium));
+    margin-bottom: 0.25rem;
+    text-align: center;
+  }
+
+  .entropy-value {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: rgb(var(--accent-grey));
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-subtext {
+    font-size: 0.7rem;
+    color: rgb(var(--accent-grey-medium));
+    margin-top: 0.25rem;
+    min-height: 1em;
+    text-align: center;
+  }
+
+  .strength-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+  }
+
+  /* tier-1: purple, tier-2: red, tier-3: orange, tier-4: yellow, tier-5: green */
+  .strength-badge.tier-1 { background: rgba(124, 58, 237, 0.15); color: #7c3aed; }
+  .strength-badge.tier-2 { background: rgba(220, 38, 38, 0.15); color: #dc2626; }
+  .strength-badge.tier-3 { background: rgba(234, 88, 12, 0.15); color: #ea580c; }
+  .strength-badge.tier-4 { background: rgba(202, 138, 4, 0.15); color: #ca8a04; }
+  .strength-badge.tier-5 { background: rgba(22, 163, 74, 0.15); color: #16a34a; }
+
+  @media (prefers-color-scheme: dark) {
+    .strength-badge.tier-1 { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
+    .strength-badge.tier-2 { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+    .strength-badge.tier-3 { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
+    .strength-badge.tier-4 { background: rgba(250, 204, 21, 0.2); color: #facc15; }
+    .strength-badge.tier-5 { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+  }
+
+  /* Dim stale results while a new benchmark runs */
+  .report.running .entropy-value {
+    opacity: 0.45;
+    transition: opacity 0.2s ease;
+  }
+
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(var(--accent-grey));
+    text-decoration: none;
+    border-radius: 8px;
+    border: 1px solid rgb(var(--accent-border));
+    background: rgb(var(--bg-surface));
+    transition: all 0.15s ease;
+  }
+
+  .footer-link:hover {
+    border-color: rgb(var(--accent-grey-light));
+    background: rgb(var(--bg-grey));
+  }
+
+  .footer-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .entropy-stat {
+      min-width: unset;
+      padding: 0.5rem;
+    }
+
+    .entropy-label {
+      font-size: 0.65rem;
+    }
+
+    .entropy-value {
+      font-size: 0.9rem;
+    }
+
+    .strength-badge {
+      font-size: 0.75rem;
+    }
+
+    .footer-link {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+<script>
+  import { getSpeedDisplay } from '@lib/calculations';
+  import {
+    BenchmarkRunner, BenchmarkCancelled, paramsProblem, memoryPerHash,
+    formatMs, formatBytes, type Measurement,
+  } from '@lib/benchmark';
+
+  const algoSelect = document.getElementById('algo-select') as HTMLSelectElement;
+  const runButton = document.getElementById('run') as HTMLButtonElement;
+  const status = document.getElementById('status') as HTMLParagraphElement;
+  const reports = document.querySelectorAll<HTMLElement>('.report');
+  const wallTime = document.getElementById('wall-time') as HTMLSpanElement;
+  const wallSubtext = document.getElementById('wall-subtext') as HTMLSpanElement;
+  const cpuTime = document.getElementById('cpu-time') as HTMLSpanElement;
+  const memory = document.getElementById('memory') as HTMLSpanElement;
+  const throughput = document.getElementById('throughput') as HTMLSpanElement;
+  const entropyInput = document.getElementById('entropy') as HTMLInputElement;
+  const entropyValue = document.getElementById('entropy-value') as HTMLSpanElement;
+  const entropyEquivalent = document.getElementById('entropy-equivalent') as HTMLSpanElement;
+  const gpuRate = document.getElementById('gpu-rate') as HTMLSpanElement;
+  const gpuAdvantage = document.getElementById('gpu-advantage') as HTMLSpanElement;
+  const deviceTime = document.getElementById('device-time') as HTMLSpanElement;
+  const deviceCores = document.getElementById('device-cores') as HTMLSpanElement;
+  const gpuTime = document.getElementById('gpu-time') as HTMLSpanElement;
+  const crackCost = document.getElementById('crack-cost') as HTMLSpanElement;
+
+  const runner = new BenchmarkRunner();
+
+  // The latest result, kept so the entropy slider can update the report without re-running
+  let result: { algo: string; params: Record<string, number>; measurement: Measurement } | null = null;
+  let runDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Bumped by every new run, so a superseded one stops touching the page
+  let generation = 0;
+  // Set when a result was measured in a background tab and should be re-run on return
+  let rerunWhenVisible = false;
+
+  /**
+   * Browsers deprioritise background tabs (macOS moves them onto efficiency cores), which
+   * can make a benchmark several times slower. Returns a check for whether the tab was
+   * hidden at any point since this was called.
+   */
+  function watchBackground(): { wasHidden(): boolean; stop(): void } {
+    let hidden = document.hidden;
+    const onChange = () => { hidden ||= document.hidden; };
+    document.addEventListener('visibilitychange', onChange);
+    return {
+      wasHidden: () => hidden || document.hidden,
+      stop: () => document.removeEventListener('visibilitychange', onChange),
+    };
+  }
+
+  const BACKGROUND_WARNING = 'This tab was in the background, which slows benchmarks down.';
+
+  function paramInputs(algo: string) {
+    return document.querySelectorAll<HTMLInputElement>(`.param-group[data-algo="${algo}"] input`);
+  }
+
+  function readParams(algo: string): Record<string, number> {
+    const params: Record<string, number> = {};
+    paramInputs(algo).forEach(input => {
+      const min = parseFloat(input.min);
+      const max = parseFloat(input.max);
+      let value = Math.round(parseFloat(input.value));
+      if (isNaN(value)) value = min;
+      params[input.dataset.key!] = Math.min(max, Math.max(min, value));
+    });
+    return params;
+  }
+
+  function setStatus(text: string, isError = false) {
+    status.textContent = text;
+    status.classList.toggle('error', isError);
+  }
+
+  function setRunning(running: boolean) {
+    runButton.classList.toggle('running', running);
+    runButton.setAttribute('aria-busy', String(running));
+    reports.forEach(report => report.classList.toggle('running', running));
+  }
+
+  function setBadge(el: HTMLElement, text: string, tier: string) {
+    el.textContent = text;
+    el.className = `entropy-value strength-badge ${tier}`;
+  }
+
+  function renderEntropy() {
+    const entropy = parseInt(entropyInput.value, 10);
+    entropyValue.textContent = `${entropy} bits`;
+    // 62 = a-z, A-Z, 0-9 chosen at random
+    entropyEquivalent.textContent = `≈ ${Math.round(entropy / Math.log2(62))} random letters and digits`;
+  }
+
+  function renderDevice(algo: string, params: Record<string, number>) {
+    memory.textContent = formatBytes(memoryPerHash(algo, params));
+  }
+
+  function renderResult() {
+    renderEntropy();
+    if (!result) return;
+
+    const { algo, params, measurement } = result;
+    const lanes = algo === 'argon2id' ? params.parallelism : 1;
+    wallTime.textContent = formatMs(measurement.wallMs);
+    wallSubtext.textContent = lanes > 1 ? `on ${lanes} threads` : 'single thread';
+    cpuTime.textContent = formatMs(measurement.cpuMs);
+    renderDevice(algo, params);
+
+    const perCore = 1000 / measurement.cpuMs;
+    throughput.textContent = perCore >= 100 ? Math.round(perCore).toLocaleString('en-US') : perCore.toFixed(1);
+
+    // An attacker with this device runs a hash on every core at once
+    const deviceRate = perCore * runner.cores;
+    const display = getSpeedDisplay(parseInt(entropyInput.value, 10), algo, params, deviceRate);
+    gpuRate.textContent = display.gpuRateText;
+    gpuAdvantage.textContent = display.gpuAdvantageText;
+    setBadge(deviceTime, display.deviceTimeText, display.deviceTimeTier);
+    deviceCores.textContent = `all ${runner.cores} cores`;
+    setBadge(gpuTime, display.gpuTimeText, display.gpuTimeTier);
+    setBadge(crackCost, display.costText, display.costTier);
+  }
+
+  /**
+   * Blank out measured values, so they're never shown beside parameters they don't match.
+   */
+  function clearResult() {
+    result = null;
+    for (const el of [wallTime, cpuTime, throughput, gpuRate]) el.textContent = '-';
+    for (const el of [wallSubtext, gpuAdvantage]) el.textContent = '';
+    for (const el of [deviceTime, gpuTime, crackCost]) setBadge(el, '-', '');
+  }
+
+  function describeError(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/memory|typed array length|allocat/i.test(message)) {
+      return 'The browser ran out of memory for these parameters. Try less memory.';
+    }
+    return `Benchmark failed: ${message}`;
+  }
+
+  /**
+   * Cancel whatever is running, then benchmark the current parameters and render the result.
+   */
+  async function run() {
+    if (runDebounceTimer) clearTimeout(runDebounceTimer);
+    runner.cancel();
+    const token = ++generation;
+    const isCurrent = () => token === generation;
+
+    const algo = algoSelect.value;
+    const params = readParams(algo);
+    renderDevice(algo, params);
+
+    const problem = paramsProblem(algo, params);
+    if (problem) {
+      clearResult();
+      setStatus(problem, true);
+      setRunning(false);
+      return;
+    }
+
+    setStatus('');
+    setRunning(true);
+    const background = watchBackground();
+    try {
+      const measurement = await runner.measure(algo, params);
+      if (!isCurrent()) return;
+      result = { algo, params, measurement };
+      rerunWhenVisible = background.wasHidden();
+      setStatus(rerunWhenVisible ? `${BACKGROUND_WARNING} It will re-run when you come back.` : '', rerunWhenVisible);
+      renderResult();
+    } catch (error) {
+      if (error instanceof BenchmarkCancelled || !isCurrent()) return;
+      clearResult();
+      setStatus(describeError(error), true);
+    } finally {
+      background.stop();
+      if (isCurrent()) setRunning(false);
+    }
+  }
+
+  function scheduleRun() {
+    if (runDebounceTimer) clearTimeout(runDebounceTimer);
+    runDebounceTimer = setTimeout(run, 500);
+  }
+
+  function onAlgoChange() {
+    const algo = algoSelect.value;
+    document.querySelectorAll<HTMLElement>('.param-group').forEach(el => {
+      el.hidden = el.dataset.algo !== algo;
+    });
+    run();
+  }
+
+  algoSelect.addEventListener('change', onAlgoChange);
+  document.querySelectorAll<HTMLInputElement>('.param-group input').forEach(input => {
+    input.addEventListener('input', scheduleRun);
+  });
+  entropyInput.addEventListener('input', renderResult);
+  runButton.addEventListener('click', run);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && rerunWhenVisible) {
+      rerunWhenVisible = false;
+      run();
+    }
+  });
+
+  renderEntropy();
+  run();
+</script>
