@@ -20,6 +20,8 @@ This is a static Astro site that calculates password entropy and estimates crack
 
 - `src/lib/calculations.ts` - Core logic: entropy calculation, crack time estimation, hash rate constants (RTX 4090 benchmarks for MD5, SHA-1, SHA-256, SHA-512, bcrypt, scrypt, Argon2id)
 - `src/pages/index.astro` - Single-page app with password input, entropy stats display, and crack time table
+- `src/pages/speed.astro` - `/speed/` benchmark: times a hash algorithm in the browser with chosen parameters and reports crack time/cost at a chosen minimum entropy
+- `src/lib/benchmark.ts` / `src/lib/benchmark.worker.ts` - Web Worker pool running hash-wasm (bcrypt, scrypt, Argon2id) and WebCrypto (PBKDF2); Argon2id lanes run as concurrent workers to emulate libargon2's threads
 - `src/layouts/Layout.astro` - HTML wrapper with meta tags and analytics
 - `src/global.css` - Tailwind v4 with CSS variables for theming (supports dark mode via `prefers-color-scheme`)
 

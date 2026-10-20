@@ -29,6 +29,7 @@ Entropy measures *uncertainty*, expressed as the number of guesses an attacker w
 | 10   | 1,024                 | 4-digit PIN with letters |
 | 20   | ~1 million            | Weak password            |
 | 40   | ~1 trillion           | Moderate password        |
+| 50   | ~1 quadrillion        | Good password            |
 | 60   | ~1 quintillion        | Strong password          |
 | 80   | ~1 septillion         | Very strong password     |
 
@@ -206,6 +207,10 @@ All of these curves are decelerating, so a fixed 3-year halving remains pessimis
 For the 62-bit entropy Argon2id example against a $1M attacker budget: `3 × log₂($60B / $1M) ≈ 48 years` of protection. (Hopefully longer!) The same password stored as MD5 is already crackable for pocket change today.
 
 One caveat cuts the other way: the site's entropy comes from zxcvbn, which [underestimates truly random passwords](#zxcvbn-pattern-matching-not-character-counting) — a random 12-character lowercase+digits password scores ~36–40 bits on the site despite its true 62. Every underestimated bit halves the estimated cost (and shaves 3 years off the horizon), so for generated passwords the displayed "Protected For" is a heavy underestimate. Between the cheap GPU pricing, the aggressive halving rate, and zxcvbn's brute-force pessimism, a random password's real protection should comfortably exceed what we show.
+
+## Tuning Your Own Hashing: The Parameter Benchmark
+
+The [parameter benchmark](https://passwordentropy.com/speed/) is for engineers picking hashing parameters. Pick an algorithm and it times a real hash in your browser running in WASM, then reports the login time, CPU time and memory each hash costs your server, alongside how long and how much a leaked hash would take to crack at a minimum password entropy you choose.
 
 ## The Passphrase Generator
 
