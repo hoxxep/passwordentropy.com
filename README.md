@@ -133,7 +133,7 @@ KSFs are specifically designed to be slow, memory-hard, or both. We benchmark wi
 |-----------|-----------------------------------------|----------------|
 | PBKDF2    | 310,000 iterations (Django 4.x default) | ~36 kH/s       |
 | bcrypt    | cost 10 (1,024 rounds)                  | ~9.5 kH/s      |
-| scrypt    | N=16384, r=1, p=1                       | ~7.8 kH/s      |
+| scrypt    | N=16384, r=8, p=1 (16 MiB)              | ~7.8 kH/s      |
 | Argon2id  | m=64MiB, t=3, p=1 (RFC 9106)            | ~2.2 kH/s      |
 
 Argon2id is the current recommendation from the [Password Hashing Competition](https://www.password-hashing.net/). It's memory-hard, requiring 64MB of RAM per hash attempt, which makes GPU parallelization expensive. The parameters we use match the "first recommendation" from [RFC 9106](https://www.rfc-editor.org/rfc/rfc9106.html).
