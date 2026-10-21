@@ -24,7 +24,7 @@ zxcvbnOptions.setOptions({
 // KDF rates are scaled to production-realistic parameters:
 // - PBKDF2: 310,000 iterations (Django 4.x default for SHA-256)
 // - bcrypt: cost 10 (1,024 rounds, common production default)
-// - scrypt: N=16384, r=1, p=1 (hashcat benchmark default)
+// - scrypt: N=16384, r=8, p=1 (16 MiB, hashcat benchmark default)
 // - Argon2id: m=65536 (64 MiB), t=3, p=1 (RFC 9106 first recommendation)
 //
 export const hashRates: Record<string, number> = {
@@ -41,8 +41,8 @@ export const hashRates: Record<string, number> = {
   // Benchmark: 304.8 kH/s @ cost 5 → scaled to cost 10 (32x slower)
   bcrypt: 9.5e3,        // ~9.5 kH/s (mode 3200, cost 10)
 
-  // Benchmark: 7,760 H/s @ N=16384, r=1, p=1
-  scrypt: 7.76e3,       // ~7.8 kH/s (mode 8900, N=16384, r=1, p=1)
+  // Benchmark: 7,760 H/s @ N=16384, r=8, p=1 (hashcat's self-test hash is SCRYPT:16384:8:1)
+  scrypt: 7.76e3,       // ~7.8 kH/s (mode 8900, N=16384, r=8, p=1)
 
   // RTX 4090: 1,703 H/s @ m=65536, t=3, p=1 (hashcat 7.0.0)
   // Estimated ~1.3x for RTX 5090
@@ -375,7 +375,7 @@ export const algoParamDefs: Record<string, AlgoParamDef[]> = {
   ],
   scrypt: [
     { key: 'N', label: 'N (Cost)', defaultValue: 16384, min: 1024, max: 2 ** 26 },
-    { key: 'r', label: 'r (Block Size)', defaultValue: 1, min: 1, max: 64 },
+    { key: 'r', label: 'r (Block Size)', defaultValue: 8, min: 1, max: 64 },
     { key: 'p', label: 'p (Parallelism)', defaultValue: 1, min: 1, max: 64 },
   ],
   argon2id: [
@@ -401,7 +401,7 @@ function scaledHashRate(hashKey: string, params: Record<string, number>): number
     case 'bcrypt':
       return base * Math.pow(2, 10 - (params.cost ?? 10));
     case 'scrypt':
-      return base * 16384 / ((params.N || 16384) * (params.r || 1) * (params.p || 1));
+      return base * (16384 * 8) / ((params.N || 16384) * (params.r || 8) * (params.p || 1));
     case 'argon2id':
       return base * (64 * 3) / ((params.memory || 64) * (params.iterations || 3));
     default:
