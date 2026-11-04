@@ -58,5 +58,7 @@ const canonicalUrl = siteUrl ? new URL(currentPath, siteUrl).toString() : undefi
 
 <!-- privacy-first analytics -->
 <script async is:inline src="https://scripts.simpleanalyticscdn.com/latest.js"></script>
+<!-- Cloudflare Web Analytics beacon, self-hosted so no third-party JS can change under us (v2026.10.1 from static.cloudflareinsights.com/beacon.min.js) -->
+<script is:inline defer src="/js/cf-beacon-2026.10.1.min.js" data-cf-beacon='{"token": "691aeb33ff0449009b439df59ad7ef04"}'></script>
 </body>
 </html>
