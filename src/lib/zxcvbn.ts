@@ -4,11 +4,11 @@
 // statically: calculations.ts pulls it in with a dynamic import() via loadEntropyEstimator(),
 // which keeps it in its own chunk, off the critical path of the first page load.
 
-import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
+import { ZxcvbnFactory, type ZxcvbnResult } from '@zxcvbn-ts/core';
 import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
 import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 
-zxcvbnOptions.setOptions({
+const factory = new ZxcvbnFactory({
   dictionary: {
     ...zxcvbnCommonPackage.dictionary,
     ...zxcvbnEnPackage.dictionary,
@@ -17,4 +17,4 @@ zxcvbnOptions.setOptions({
   translations: zxcvbnEnPackage.translations,
 });
 
-export { zxcvbn };
+export const zxcvbn = (password: string): ZxcvbnResult => factory.check(password);
