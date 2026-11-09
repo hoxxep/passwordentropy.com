@@ -18,7 +18,7 @@ import {
   MAX_ATTEMPTS,
   type GeneratedPassphrase,
 } from '@lib/generator';
-import { calculateEntropy } from '@lib/calculations';
+import { calculateEntropy, loadEntropyEstimator } from '@lib/calculations';
 
 const WORDLIST_PATH = fileURLToPath(new URL('../src/assets/wordlist.txt', import.meta.url));
 const WORDS = fs.readFileSync(WORDLIST_PATH, 'utf8').split('\n').map(w => w.trim()).filter(Boolean);
@@ -77,7 +77,8 @@ function generatedCorpus(wordCount: number): GeneratedPassphrase[] {
   return corpus;
 }
 
-beforeAll(() => {
+beforeAll(async () => {
+  await loadEntropyEstimator();
   // calculations.ts logs debug stats outside a production build; keep test output readable.
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });

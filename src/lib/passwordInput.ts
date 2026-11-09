@@ -2,7 +2,7 @@
 // overflow fades. Both the simple and advanced calculators mount the same box, so this
 // lives here rather than being copy-pasted into each page's script.
 
-import { calculateEntropy } from '@lib/calculations';
+import { calculateEntropy, loadEntropyEstimator } from '@lib/calculations';
 import { loadWordlist, generatePassphrase, DEFAULT_WORD_COUNT } from '@lib/generator';
 
 export interface PasswordInputHandle {
@@ -82,7 +82,7 @@ export function initPasswordInput(onChange: (state: PasswordState) => void): Pas
     generateButton.disabled = true;
 
     try {
-      const wordlist = await loadWordlist();
+      const [wordlist] = await Promise.all([loadWordlist(), loadEntropyEstimator()]);
       const { passphrase, entropy } = generatePassphrase(wordlist, {
         wordCount: DEFAULT_WORD_COUNT,
         estimateEntropy: calculateEntropy,

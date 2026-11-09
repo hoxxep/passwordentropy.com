@@ -1,18 +1,45 @@
 // Password entropy and crack time calculations
 
-import {zxcvbn, zxcvbnOptions, type ZxcvbnResult} from '@zxcvbn-ts/core';
-import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
-import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en';
+import type { ZxcvbnResult } from '@zxcvbn-ts/core';
 
-// Initialize zxcvbn with English dictionary and common adjacency graphs
-zxcvbnOptions.setOptions({
-  dictionary: {
-    ...zxcvbnCommonPackage.dictionary,
-    ...zxcvbnEnPackage.dictionary,
-  },
-  graphs: zxcvbnCommonPackage.adjacencyGraphs,
-  translations: zxcvbnEnPackage.translations,
-});
+type Zxcvbn = typeof import('./zxcvbn').zxcvbn;
+
+// zxcvbn and its dictionaries load lazily (see zxcvbn.ts), so calculateEntropy() is only usable
+// once loadEntropyEstimator() has resolved.
+let zxcvbn: Zxcvbn | null = null;
+let estimatorLoading: Promise<void> | null = null;
+
+/**
+ * Fetches zxcvbn and its dictionaries. Safe to call repeatedly: concurrent and later calls share
+ * one download, and a failed download is retried on the next call.
+ */
+export function loadEntropyEstimator(): Promise<void> {
+  estimatorLoading ??= import('./zxcvbn').then(
+    module => { zxcvbn = module.zxcvbn; },
+    error => { estimatorLoading = null; throw error; },
+  );
+  return estimatorLoading;
+}
+
+/** Whether calculateEntropy() can run now, without waiting on loadEntropyEstimator(). */
+export function isEntropyEstimatorReady(): boolean {
+  return zxcvbn !== null;
+}
+
+/**
+ * Starts loading the estimator once the page has finished loading and the main thread is idle,
+ * so the dictionaries never compete with the first paint but are usually ready by the time
+ * someone types.
+ */
+export function preloadEntropyEstimatorWhenIdle(): void {
+  const start = () => {
+    const load = () => { loadEntropyEstimator().catch(() => { /* retried on first use */ }); };
+    if ('requestIdleCallback' in window) requestIdleCallback(load, { timeout: 2000 });
+    else setTimeout(load, 200);
+  };
+  if (document.readyState === 'complete') start();
+  else window.addEventListener('load', start, { once: true });
+}
 
 // Hash rates per GPU (hashes per second) based on RTX 5090 hashcat benchmarks
 //
@@ -140,9 +167,12 @@ function analyzePassword(password: string): {
 /**
  * Calculate password entropy in bits using zxcvbn.
  * Converts guessesLog10 to log2: entropy = guessesLog10 * log2(10)
+ *
+ * Throws unless loadEntropyEstimator() has resolved.
  */
 export function calculateEntropy(password: string): number | undefined {
   if (password.length === 0) return undefined;
+  if (!zxcvbn) throw new Error('calculateEntropy() called before loadEntropyEstimator() resolved');
 
   const result = zxcvbn(password);
 
