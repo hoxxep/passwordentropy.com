@@ -1,3 +1,7 @@
+# Only install package versions that have been public for at least 7 days (in minutes), so a
+# hijacked release has time to be spotted and pulled before it reaches us.
+minimumReleaseAge: 10080
+
 # vitest pulls in esbuild, whose postinstall links its platform binary
 onlyBuiltDependencies:
   - esbuild
