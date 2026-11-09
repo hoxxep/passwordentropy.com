@@ -250,7 +250,7 @@ entropy = 4 × log₂(17,576) + log₂(acceptance_rate)
         = 56.4 - 0.86 = 55.5 bits
 ```
 
-At four words, 65.8% of draws are both short enough and score low enough under zxcvbn. The discount uses a conservative floor of 55% rather than the measured rate, and the test suite asserts the real rate stays above it.
+At four words, 69.6% of draws are both short enough and score low enough under zxcvbn. The discount uses a conservative floor of 55% rather than the measured rate, and the test suite asserts the real rate stays above it.
 
 ## The Takeaways
 

@@ -1,13 +1,14 @@
 ---
 import Layout from '@layouts/Layout.astro';
 import PasswordInput from '@components/PasswordInput.astro';
-import { hashAlgorithms, algoParamDefs, gpuCostPerHour, costHalvingYears, getAdvancedDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy } from '@lib/calculations';
+import { hashAlgorithms, algoParamDefs, gpuCostPerHour, costHalvingYears, getAdvancedDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy, loadEntropyEstimator } from '@lib/calculations';
 
 // Default values for initial render
 const DEFAULT_PASSWORD = 'Tr0ub4dor&3';
 const DEFAULT_ALGO = 'argon2id';
 const DEFAULT_BUDGET = 1_000_000;
 
+await loadEntropyEstimator();
 const defaultEntropy = calculateEntropy(DEFAULT_PASSWORD)!;
 
 // Pre-fetch HIBP breach count at build time
@@ -355,7 +356,7 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
 </style>
 
 <script>
-  import { calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy, getAdvancedDisplay } from '@lib/calculations';
+  import { calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy, getAdvancedDisplay, isEntropyEstimatorReady, loadEntropyEstimator, preloadEntropyEstimatorWhenIdle } from '@lib/calculations';
   import { generatedDisplayEntropy } from '@lib/generator';
   import { initPasswordInput } from '@lib/passwordInput';
 
@@ -390,6 +391,35 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
     return params;
   }
 
+  const LOADING_DOTS = '<span class="breach-dots" role="status" aria-label="Loading"><i></i><i></i><i></i></span>';
+  let waitingForEstimator = false;
+
+  /**
+   * Placeholder for while the zxcvbn dictionaries are still downloading; recompute() runs
+   * again with whatever the password is by the time they arrive.
+   */
+  function showEntropyLoading() {
+    entropyBits.innerHTML = LOADING_DOTS;
+    entropyBits.classList.remove('penalized');
+    for (const el of [strengthLabel, crackTime, crackCost, protection]) {
+      el.innerHTML = LOADING_DOTS;
+      el.className = 'entropy-value strength-badge';
+    }
+    protectionUntil.textContent = '';
+
+    if (waitingForEstimator) return;
+    waitingForEstimator = true;
+    loadEntropyEstimator()
+      .then(recompute)
+      .catch(error => {
+        console.error('Could not load the strength estimator:', error);
+        entropyBits.textContent = '-';
+        strengthLabel.textContent = 'Unavailable';
+        for (const el of [crackTime, crackCost, protection]) el.textContent = '-';
+      })
+      .finally(() => { waitingForEstimator = false; });
+  }
+
   function recompute() {
     const { password, generatedEntropy } = passwordBox.getState();
     passwordLength.textContent = `${password.length} chars`;
@@ -406,6 +436,11 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
       protection.textContent = '-';
       protection.className = 'entropy-value strength-badge';
       protectionUntil.textContent = '';
+      return;
+    }
+
+    if (!isEntropyEstimatorReady()) {
+      showEntropyLoading();
       return;
     }
 
@@ -504,6 +539,7 @@ const display = getAdvancedDisplay(displayEntropy, DEFAULT_ALGO, defaultParams, 
   }
 
   const passwordBox = initPasswordInput(onPasswordChange);
+  preloadEntropyEstimatorWhenIdle();
   algoSelect.addEventListener('change', onAlgoChange);
   budgetInput.addEventListener('input', onBudgetChange);
   paramGroups.forEach(group => {

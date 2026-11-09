@@ -1,10 +1,11 @@
 ---
 import Layout from '@layouts/Layout.astro';
 import PasswordInput from '@components/PasswordInput.astro';
-import { gpuScales, hashAlgorithms, gpuCostPerHour, getCellDisplay, getCostCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy } from '@lib/calculations';
+import { gpuScales, hashAlgorithms, gpuCostPerHour, getCellDisplay, getCostCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy, loadEntropyEstimator } from '@lib/calculations';
 
 // Default password for initial render
 const DEFAULT_PASSWORD = 'Tr0ub4dor&3';
+await loadEntropyEstimator();
 const defaultEntropy = calculateEntropy(DEFAULT_PASSWORD)!;
 
 // Pre-fetch HIBP breach count at build time
@@ -292,6 +293,11 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
     }
   }
 
+  /* The table still shows the previous password's values while the estimator loads */
+  .crack-table.pending :global(.value) {
+    opacity: 0.35;
+  }
+
   .crack-table {
     --border-size: 16px;
     --outer-radius: 16px;
@@ -553,7 +559,7 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
 </style>
 
 <script>
-  import { getCellDisplay, getCostCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy } from '@lib/calculations';
+  import { getCellDisplay, getCostCellDisplay, calculateEntropy, getStrengthLabel, getStrengthTier, checkHIBP, formatBreachCount, getBreachTier, calculatePenalizedEntropy, isEntropyEstimatorReady, loadEntropyEstimator, preloadEntropyEstimatorWhenIdle } from '@lib/calculations';
   import { generatedDisplayEntropy } from '@lib/generator';
   import { initPasswordInput, type PasswordState } from '@lib/passwordInput';
 
@@ -600,7 +606,49 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
     });
   }
 
-  function updateTable({ password, generatedEntropy }: PasswordState) {
+  const LOADING_DOTS = '<span class="breach-dots" role="status" aria-label="Loading"><i></i><i></i><i></i></span>';
+  const crackTable = document.querySelector('.crack-table') as HTMLTableElement;
+  let waitingForEstimator = false;
+
+  /**
+   * Placeholder for while the zxcvbn dictionaries are still downloading: the entropy and
+   * strength show loading dots and the (now stale) table dims until they arrive.
+   */
+  function showEntropyLoading({ password }: PasswordState) {
+    entropyBits.innerHTML = LOADING_DOTS;
+    entropyBits.classList.remove('penalized');
+    strengthLabel.innerHTML = LOADING_DOTS;
+    strengthLabel.className = 'entropy-value strength-badge';
+    passwordLength.textContent = `${password.length} chars`;
+    breachBanners.forEach(banner => banner.classList.add('hidden'));
+    crackTable.classList.add('pending');
+
+    // Cancel any in-flight HIBP check; it restarts once the estimator is ready
+    if (hibpDebounceTimer) clearTimeout(hibpDebounceTimer);
+    if (hibpAbortController) hibpAbortController.abort();
+    showBreachLoading();
+
+    if (waitingForEstimator) return;
+    waitingForEstimator = true;
+    loadEntropyEstimator()
+      .then(() => updateTable(passwordBox.getState()))
+      .catch(error => {
+        console.error('Could not load the strength estimator:', error);
+        entropyBits.textContent = '-';
+        strengthLabel.textContent = 'Unavailable';
+        crackTable.classList.remove('pending');
+      })
+      .finally(() => { waitingForEstimator = false; });
+  }
+
+  function updateTable(state: PasswordState) {
+    if (!isEntropyEstimatorReady() && state.password.length > 0) {
+      showEntropyLoading(state);
+      return;
+    }
+    crackTable.classList.remove('pending');
+
+    const { password, generatedEntropy } = state;
     const estimated = calculateEntropy(password);
 
     // For a passphrase we generated ourselves we know the exact entropy, but never claim
@@ -659,7 +707,8 @@ const preCalculatedCosts = hashAlgorithms.map(hash =>
     }, 300);
   }
 
-  initPasswordInput(updateTable);
+  const passwordBox = initPasswordInput(updateTable);
+  preloadEntropyEstimatorWhenIdle();
 
   // Header highlight on cell hover
   const gpuHeaders = document.querySelectorAll<HTMLTableCellElement>('.gpu-header');

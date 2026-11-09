@@ -59,7 +59,7 @@ export function maxPassphraseLength(wordCount: number): number {
 const MIN_ACCEPTANCE_RATE: Record<'length' | 'estimated', Record<number, number>> = {
   /** Length ceiling alone. Measured: 81.0 / 84.0 / 84.7 / 86.3 / 88.6 / 90.2%. */
   length: { 3: 0.72, 4: 0.75, 5: 0.76, 6: 0.78, 7: 0.80, 8: 0.82 },
-  /** Length ceiling and estimator together. Measured: 69.9 / 65.8 / 59.9 / 51.8 / 43.6 / 35.3%. */
+  /** Length ceiling and estimator together. Measured: 72.4 / 69.6 / 65.8 / 60.9 / 52.9 / 45.1%. */
   estimated: { 3: 0.60, 4: 0.55, 5: 0.50, 6: 0.42, 7: 0.34, 8: 0.26 },
 };
 
